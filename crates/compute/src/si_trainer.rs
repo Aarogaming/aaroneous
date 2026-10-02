@@ -404,7 +404,7 @@ impl SiModelTrainer {
 
         // 2. Thermodynamic Free Energy Residual Loss: (F_pred - F_true)^2
         let energy_diff =
-            (prediction.predicted_energy_cost - thought.header.thermodynamic_free_energy) as f32;
+            (prediction.predicted_energy_cost - thought.header.accumulated_energy_cost) as f32;
         let energy_loss = energy_diff.powi(2) * self.config.energy_loss_weight;
 
         // 3. Dimensional Invariant Consistency Penalty
@@ -436,7 +436,7 @@ impl SiModelTrainer {
             if is_correct {
                 correct_count += 1;
             }
-            total_energy_residual += (thought.header.thermodynamic_free_energy - 0.05).abs();
+            total_energy_residual += (thought.header.accumulated_energy_cost - 0.05).abs();
         }
 
         let count = thoughts.len().max(1);

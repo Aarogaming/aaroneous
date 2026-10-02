@@ -191,10 +191,18 @@ impl TokenBucketLimiter {
             .remove(key);
     }
 
-    /// Number of tracked keys. Test-only inspection.
-    #[cfg(test)]
-    pub fn len(&self) -> usize {
+    /// Number of tracked keys, for bounded operational diagnostics.
+    pub fn tracked_key_count(&self) -> usize {
         self.buckets.lock().expect("rate limiter poisoned").len()
+    }
+
+    /// Test-only inspection.
+    #[cfg(test)]
+    pub fn is_empty(&self) -> bool {
+        self.buckets
+            .lock()
+            .expect("rate limiter poisoned")
+            .is_empty()
     }
 }
 
@@ -324,13 +332,13 @@ mod tests {
             idle_eviction: Some(Duration::from_millis(20)),
         });
         rl.check("a");
-        assert_eq!(rl.len(), 1);
+        assert_eq!(rl.tracked_key_count(), 1);
         sleep(Duration::from_millis(40));
         // sweep_idle is now a separate method; it walks the
         // bucket map once and drops everything past the window.
         let dropped = rl.sweep_idle();
         assert_eq!(dropped, 1);
-        assert_eq!(rl.len(), 0);
+        assert_eq!(rl.tracked_key_count(), 0);
     }
 
     #[test]

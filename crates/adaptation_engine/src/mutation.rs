@@ -150,7 +150,7 @@ impl CodeMutator {
         });
         graph.entry_node = 1;
         graph.exit_node = 1;
-        graph.thermodynamic_free_energy = dissipation;
+        graph.accumulated_energy_cost = dissipation;
 
         // 2. Evaluate with SMT formal action interlock
         let cert = interlock.evaluate_action_graph(&graph)?;

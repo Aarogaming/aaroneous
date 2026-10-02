@@ -7,11 +7,11 @@
 //! ┌───────────────────────────────────────────────────────────────────┐
 //! │                    .si (SINT) BINARY LAYOUT                       │
 //! ├───────────────────────────────────────────────────────────────────┤
-//! │ Offset 0x00 : Magic b"SINT" (4 bytes)                             │
-//! │ Offset 0x04 : Version u32   (4 bytes) = SINT_PACKER_VERSION       │
-//! │ Offset 0x08 : Flags   u32   (4 bytes) = 0x00 (tier flags)         │
-//! │ Offset 0x0C : toc_len u64   (8 bytes) = manifest byte length      │
-//! │ Offset 0x14 : Manifest bytes (length-prefixed TOC)                │
+//! │ Offset 0x00 : Canonical 64-byte header, little-endian             │
+//! │               (`si_format::header::SiCartridgeHeader`): magic,    │
+//! │               version u16, header_size u16 (= 64), flags u32,     │
+//! │               crc32 u32, then three (offset u64, len u64) blocks  │
+//! │ Offset 0x40 : Manifest bytes (block 1: offset 64, len = TOC len)  │
 //! │ Offset PAD  : [64-byte alignment padding]                         │
 //! ├───────────────────────────────────────────────────────────────────┤
 //! │ [BLOCK 1+]  : Tensor & reflex payloads, each 64-byte aligned      │
@@ -28,8 +28,10 @@ use std::io::Write;
 use std::path::Path;
 
 use si_format::audit::jit_audit;
+pub use si_format::header::{
+    SI_CANONICAL_MAGIC as SINT_PACKER_MAGIC, SI_CANONICAL_VERSION as MIN_VERSION,
+};
 pub use si_format::utils::{ALIGNMENT_BYTES, align_to_64, compute_padding};
-pub use si_format::verify::{MIN_VERSION, SINT_PACKER_MAGIC};
 
 /// Packer format version — v3 enforces tensor-descriptor manifest with explicit byte offsets
 pub const SINT_PACKER_VERSION: u32 = 3;
@@ -42,56 +44,7 @@ pub type RawTensorPayload = (String, Vec<u8>, Vec<usize>, bool, PayloadType);
 // Tier Designation Flags (Offset 0x08 in .si SINT header)
 // ────────────────────────────────────────────────────────────────────────────
 
-/// Tier Designation Flags defining CPU/memory execution profiles and routing topology.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub struct SiTierFlags(pub u32);
-
-impl SiTierFlags {
-    /// Tier 1: Strategic Cortex (HD R^4096 representation, background OS thread)
-    pub const TIER_1_CORTEX: Self = Self(0b0000_0001);
-    /// Tier 2: Orchestration / Router (R^256, connects to central SPMC hub)
-    pub const TIER_2_ROUTER: Self = Self(0b0000_0010);
-    /// Tier 3: Kinetic Specialist / Reflex (R^256, L1 cache priority, thread pinning)
-    pub const TIER_3_REFLEX: Self = Self(0b0000_0100);
-
-    pub fn bits(&self) -> u32 {
-        self.0
-    }
-
-    pub fn from_bits(bits: u32) -> Self {
-        Self(bits)
-    }
-
-    pub fn is_cortex(&self) -> bool {
-        self.0 & Self::TIER_1_CORTEX.0 != 0
-    }
-
-    pub fn is_router(&self) -> bool {
-        self.0 & Self::TIER_2_ROUTER.0 != 0
-    }
-
-    pub fn is_reflex(&self) -> bool {
-        self.0 & Self::TIER_3_REFLEX.0 != 0
-    }
-
-    pub fn label(&self) -> &'static str {
-        if self.is_cortex() {
-            "Tier 1: Strategic Cortex (R^4096)"
-        } else if self.is_router() {
-            "Tier 2: Router (R^256)"
-        } else if self.is_reflex() {
-            "Tier 3: Kinetic Reflex (R^256)"
-        } else {
-            "Tier 3: Kinetic Reflex (Default)"
-        }
-    }
-}
-
-impl Default for SiTierFlags {
-    fn default() -> Self {
-        Self::TIER_3_REFLEX
-    }
-}
+pub use si_format::header::SiTierFlags;
 
 // ────────────────────────────────────────────────────────────────────────────
 // Manifest types
@@ -221,7 +174,7 @@ impl SiPacker {
             .iter()
             .map(|(_, data, _, _, _)| data.len() as u64)
             .collect();
-        let header_prefix: u64 = 20; // 4 (magic) + 4 (version) + 4 (flags) + 8 (toc_len)
+        let header_prefix: u64 = 64; // Canonical SiCartridgeHeader is 64 bytes
 
         let compute_layout = |manifest_len_guess: u64| -> (Vec<u64>, u64) {
             let after_manifest = header_prefix + manifest_len_guess;
@@ -282,6 +235,14 @@ impl SiPacker {
 
         let manifest_len = manifest_len_guess;
 
+        let header = si_format::header::SiCartridgeHeader {
+            version: SINT_PACKER_VERSION as u16,
+            flags: tier.bits(),
+            block1_offset: 64,
+            block1_len: manifest_len,
+            ..Default::default()
+        };
+
         let mut file = OpenOptions::new()
             .read(true)
             .write(true)
@@ -289,16 +250,15 @@ impl SiPacker {
             .truncate(true)
             .open(output_path)?;
 
-        file.write_all(&SINT_PACKER_MAGIC)?;
-        file.write_all(&SINT_PACKER_VERSION.to_le_bytes())?;
-        file.write_all(&tier.bits().to_le_bytes())?;
-        file.write_all(&manifest_len.to_le_bytes())?;
+        // `to_bytes` encodes little-endian per the format contract; a raw
+        // `bytemuck::bytes_of` would emit native-endian fields.
+        file.write_all(&header.to_bytes())?;
         file.write_all(&manifest_bytes)?;
 
-        let pad_after_manifest = compute_padding(header_prefix + manifest_len);
+        let pad_after_manifest = compute_padding(64 + manifest_len);
         file.write_all(&vec![0u8; pad_after_manifest])?;
 
-        let file_pos_after_header = header_prefix + manifest_len + pad_after_manifest as u64;
+        let file_pos_after_header = 64 + manifest_len + pad_after_manifest as u64;
         let mut file_cursor = file_pos_after_header;
 
         for (((_, bytes, _, _, _), &expected_offset), &payload_len) in
@@ -354,26 +314,35 @@ impl SiSolidStateLoader {
         // is read-only, kept alive for `Self`'s whole lifetime below.
         let mmap = unsafe { Mmap::map(&file)? };
 
-        if mmap.len() < 20 || mmap[0..4] != SINT_PACKER_MAGIC {
-            bail!("SiSolidStateLoader: {:?} missing SINT magic bytes", path);
+        if mmap.len() < 64 {
+            bail!("SiSolidStateLoader: {:?} too small for header", path);
         }
 
-        let version = u32::from_le_bytes(mmap[4..8].try_into()?);
-        if version < MIN_VERSION {
+        // `from_bytes` decodes little-endian and rejects bad magic.
+        let header = si_format::header::SiCartridgeHeader::from_bytes(&mmap[0..64])
+            .with_context(|| format!("SiSolidStateLoader: {:?} has an invalid header", path))?;
+
+        if header.header_size as usize != si_format::header::SI_HEADER_SIZE {
             bail!(
-                "SiSolidStateLoader: container version v{} is not supported (requires v{}+)",
-                version,
+                "SiSolidStateLoader: {:?} declares header_size {} (expected {})",
+                path,
+                header.header_size,
+                si_format::header::SI_HEADER_SIZE
+            );
+        }
+
+        if header.version < MIN_VERSION {
+            bail!(
+                "Container version v{} is not supported (requires v{}+)",
+                header.version,
                 MIN_VERSION
             );
         }
 
-        let flag_bytes: [u8; 4] = mmap[8..12].try_into()?;
-        let tier_flags = SiTierFlags::from_bits(u32::from_le_bytes(flag_bytes));
+        let tier_flags = SiTierFlags::from_bits(header.flags);
 
-        let toc_len = u64::from_le_bytes(mmap[12..20].try_into()?) as usize;
-        let manifest_bytes = mmap
-            .get(20..20 + toc_len)
-            .ok_or_else(|| anyhow::anyhow!("SiSolidStateLoader: TOC truncated"))?;
+        let manifest_bytes = checked_range(&mmap, header.block1_offset, header.block1_len)
+            .ok_or_else(|| anyhow::anyhow!("SiSolidStateLoader: TOC range invalid or truncated"))?;
 
         let manifest: SiContainerManifest = bincode_deserialize(manifest_bytes)?;
 
@@ -387,30 +356,14 @@ impl SiSolidStateLoader {
 
     pub fn get_tensor_slice(&self, name: &str) -> Option<&[f32]> {
         let desc = self.manifest.tensors.iter().find(|t| t.name == name)?;
-        let start = desc.byte_offset as usize;
-        let end = start + desc.byte_length as usize;
-        let raw_slice = self.mmap.get(start..end)?;
+        let raw_slice = checked_range(&self.mmap, desc.byte_offset, desc.byte_length)?;
 
-        debug_assert_eq!(
-            raw_slice.as_ptr() as usize % ALIGNMENT_BYTES,
-            0,
-            "SiSolidStateLoader: tensor '{}' is not 64-byte aligned (ptr={:#x})",
-            name,
-            raw_slice.as_ptr() as usize
-        );
-
-        debug_assert_eq!(
-            raw_slice.len() % 4,
-            0,
-            "Tensor byte length is not a multiple of 4"
-        );
-        let float_count = raw_slice.len() / 4;
-        // SAFETY: `byte_offset` is 64-byte aligned by the packer's writer,
-        // so `raw_slice.as_ptr()` is `f32`-aligned and `float_count` fits.
-        let f32_slice =
-            unsafe { std::slice::from_raw_parts(raw_slice.as_ptr() as *const f32, float_count) };
-
-        Some(f32_slice)
+        // Offsets come from the file, so alignment and length are runtime
+        // input: reject rather than assert. `cast_slice` checks both.
+        if !(raw_slice.as_ptr() as usize).is_multiple_of(ALIGNMENT_BYTES) {
+            return None;
+        }
+        bytemuck::try_cast_slice::<u8, f32>(raw_slice).ok()
     }
 
     /// Loads a JIT Reflex and routes it through the Governance security audit gate.
@@ -422,9 +375,8 @@ impl SiSolidStateLoader {
             .find(|p| p.name == name && p.payload_type == PayloadType::JitReflex)
             .context(format!("JIT Reflex '{}' not found", name))?;
 
-        let start = desc.byte_offset as usize;
-        let end = start + desc.byte_length as usize;
-        let bytecode = &self.mmap[start..end];
+        let bytecode = checked_range(&self.mmap, desc.byte_offset, desc.byte_length)
+            .context(format!("JIT Reflex '{}' has an invalid byte range", name))?;
 
         // Governance security audit gate: prevents forbidden opcodes prior to PAGE_EXECUTE
         jit_audit(bytecode).context(format!("Governance JIT Audit FAILED for reflex: {}", name))?;
@@ -463,15 +415,28 @@ impl SiSolidStateLoader {
 // ────────────────────────────────────────────────────────────────────────────
 
 fn bincode_serialize<T: Serialize>(value: &T) -> Result<Vec<u8>> {
-    Ok(serde_json::to_vec(value)?)
+    let bytes = bincode::serde::encode_to_vec(value, bincode::config::standard())?;
+    Ok(bytes)
+}
+
+/// Returns `data[offset..offset + len]` when the file-supplied range is
+/// representable and in bounds; `None` on overflow or truncation.
+fn checked_range(data: &[u8], offset: u64, len: u64) -> Option<&[u8]> {
+    let start = usize::try_from(offset).ok()?;
+    let end = start.checked_add(usize::try_from(len).ok()?)?;
+    data.get(start..end)
 }
 
 fn bincode_deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8]) -> Result<T> {
-    Ok(serde_json::from_slice(bytes)?)
+    if let Ok((val, _)) = bincode::serde::decode_from_slice(bytes, bincode::config::standard()) {
+        Ok(val)
+    } else {
+        // Fallback for legacy JSON-encoded test/cartridge manifests
+        Ok(serde_json::from_slice(bytes)?)
+    }
 }
 
 #[cfg(test)]
-#[allow(ambient_authority)]
 mod tests {
     use super::*;
 
@@ -506,5 +471,116 @@ mod tests {
         let in_proj = loader.get_tensor_slice("ssm_in_proj").unwrap();
         assert_eq!(in_proj.len(), 256 * 32);
         assert!((in_proj[0] - 0.1f32).abs() < 1e-6);
+    }
+    #[test]
+    fn test_si_packer_writes_canonical_header() {
+        let temp_dir = tempfile::tempdir().expect("create test sandbox");
+        let tmp = temp_dir.path().join("test_packer_header.si");
+        let mut core = HashMap::new();
+        core.insert("ssm_in_proj".to_string(), vec![0.1f32; 256 * 32]);
+
+        SiPacker::pack_to_si(&tmp, "test_model", 32, 8, 4, core).expect("pack_to_si failed");
+
+        let file_bytes = std::fs::read(&tmp).expect("read si file");
+        assert!(file_bytes.len() >= 64, "file too small for header");
+
+        let header = si_format::header::SiCartridgeHeader::from_bytes(&file_bytes[0..64])
+            .expect("decode canonical header");
+
+        assert_eq!(header.magic, si_format::header::SI_CANONICAL_MAGIC);
+        assert_eq!(header.version, SINT_PACKER_VERSION as u16);
+        assert_eq!(header.header_size, 64);
+        assert_eq!(header.block1_offset, 64);
+    }
+
+    fn write_header(path: &Path, header: si_format::header::SiCartridgeHeader) {
+        std::fs::write(path, header.to_bytes()).expect("write header");
+    }
+
+    #[test]
+    fn test_loader_rejects_overflowing_manifest_range() {
+        let temp_dir = tempfile::tempdir().expect("create test sandbox");
+        let path = temp_dir.path().join("overflow.si");
+        write_header(
+            &path,
+            si_format::header::SiCartridgeHeader {
+                block1_offset: u64::MAX,
+                block1_len: 2,
+                ..Default::default()
+            },
+        );
+        assert!(SiSolidStateLoader::load(&path).is_err());
+    }
+
+    #[test]
+    fn test_loader_rejects_manifest_range_past_end_of_file() {
+        let temp_dir = tempfile::tempdir().expect("create test sandbox");
+        let path = temp_dir.path().join("truncated.si");
+        write_header(
+            &path,
+            si_format::header::SiCartridgeHeader {
+                block1_offset: 64,
+                block1_len: 4096,
+                ..Default::default()
+            },
+        );
+        assert!(SiSolidStateLoader::load(&path).is_err());
+    }
+
+    #[test]
+    fn test_loader_rejects_invalid_header_size() {
+        let temp_dir = tempfile::tempdir().expect("create test sandbox");
+        let path = temp_dir.path().join("header_size.si");
+        SiPacker::pack_to_si(&path, "test_model", 1, 1, 1, HashMap::new()).expect("pack");
+        let mut bytes = std::fs::read(&path).expect("read");
+        bytes[6..8].copy_from_slice(&0u16.to_le_bytes());
+        std::fs::write(&path, bytes).expect("write");
+        assert!(SiSolidStateLoader::load(&path).is_err());
+    }
+
+    #[test]
+    fn test_checked_range_bounds() {
+        let data = [0u8; 16];
+        assert_eq!(checked_range(&data, 0, 16).map(<[u8]>::len), Some(16));
+        assert_eq!(checked_range(&data, 16, 0).map(<[u8]>::len), Some(0));
+        assert!(checked_range(&data, 8, 9).is_none());
+        assert!(checked_range(&data, u64::MAX, 1).is_none());
+        assert!(checked_range(&data, 1, u64::MAX).is_none());
+    }
+
+    #[test]
+    fn test_bincode_and_json_manifest_roundtrip() {
+        let manifest = SiContainerManifest {
+            model_identifier: "roundtrip_test".to_string(),
+            d_model: 64,
+            d_state: 16,
+            lora_rank: 8,
+            tier_flags: None,
+            tensors: vec![TensorDescriptor {
+                name: "tensor_1".to_string(),
+                shape: vec![64, 64],
+                dtype: "F32".to_string(),
+                byte_offset: 128,
+                byte_length: 4096,
+                is_mutable: false,
+                payload_type: PayloadType::Tensor,
+            }],
+        };
+
+        // Binary bincode serialization
+        let bincode_bytes = bincode_serialize(&manifest).expect("serialize bincode");
+        let decoded_bincode: SiContainerManifest =
+            bincode_deserialize(&bincode_bytes).expect("deserialize bincode");
+        assert_eq!(decoded_bincode.model_identifier, "roundtrip_test");
+        assert_eq!(decoded_bincode.d_state, 16);
+        assert_eq!(decoded_bincode.tensors.len(), 1);
+
+        // JSON compatibility fallback
+        let json_bytes = serde_json::to_vec(&manifest).expect("serialize json");
+        let decoded_json: SiContainerManifest =
+            bincode_deserialize(&json_bytes).expect("deserialize json fallback");
+        assert_eq!(decoded_json.model_identifier, "roundtrip_test");
+        assert_eq!(decoded_json.d_state, 16);
+        assert_eq!(decoded_json.tensors.len(), 1);
     }
 }

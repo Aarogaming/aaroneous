@@ -2,6 +2,7 @@
 // Tests verifying that all computed data is actually used in system decisions
 
 #[cfg(test)]
+#[allow(clippy::module_inception)] // file is already named after this test module
 mod phase2_integration_tests {
 
     // ========================================================================

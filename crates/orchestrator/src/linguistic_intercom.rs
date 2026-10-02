@@ -180,7 +180,7 @@ impl LinguisticIntercom {
 
         // Synthesize machine-native computational graph
         let mut graph = NativeComputationalGraph::new();
-        graph.thermodynamic_free_energy = 0.01;
+        graph.accumulated_energy_cost = 0.01;
 
         let goal_node = NativeComputationNode {
             id: 1,

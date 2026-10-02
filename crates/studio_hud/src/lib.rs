@@ -6,7 +6,7 @@ pub use crate as hud;
 pub extern crate adaptation_plane as evolution;
 pub extern crate ipc_bus as nervous_system;
 
-pub use hypervisor::capability_broker;
+pub use hive_mind::capability_broker;
 pub use hypervisor::util;
 pub use omni::{ConstellationNode, NodeType, SpatialCoord, StarNode, StarNodeType};
 

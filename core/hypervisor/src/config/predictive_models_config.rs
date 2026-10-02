@@ -440,7 +440,7 @@ mod tests {
         assert_eq!(config.measurement_noise_variance(), 0.01);
         assert_eq!(config.num_states(), 3);
         assert_eq!(config.num_symbols(), 3);
-        assert_eq!(config.thermal().enabled, true);
+        assert!(config.thermal().enabled);
         assert_eq!(config.thermal().confidence_threshold, 0.8);
     }
 }

@@ -85,9 +85,11 @@ mod tests {
 
     #[test]
     fn test_average_latency_calculation() {
-        let mut metrics = HidMetrics::default();
-        metrics.total_commands = 10;
-        metrics.sum_latency_us = 500; // Total 500us for 10 commands
+        let metrics = HidMetrics {
+            total_commands: 10,
+            sum_latency_us: 500, // Total 500us for 10 commands
+            ..Default::default()
+        };
 
         assert_eq!(metrics.average_latency_us(), 50); // 50us average
     }

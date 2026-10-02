@@ -33,6 +33,11 @@ pub enum LoadError {
         min: u32,
         max: u32,
     },
+    LineageMismatch {
+        reported: String,
+        expected: String,
+    },
+    InvalidLineageStamp,
 }
 
 impl std::fmt::Display for LoadError {
@@ -46,6 +51,13 @@ impl std::fmt::Display for LoadError {
                 f,
                 "plugin reports ABI version {reported}, outside this host's supported range [{min}, {max}]"
             ),
+            Self::LineageMismatch { reported, expected } => write!(
+                f,
+                "plugin lineage stamp '{reported}' does not match host lineage '{expected}'"
+            ),
+            Self::InvalidLineageStamp => {
+                write!(f, "plugin lineage stamp is not 24 Base36 characters")
+            }
         }
     }
 }
@@ -67,6 +79,19 @@ type PluginAbiVersionFn = unsafe extern "C" fn() -> u32;
 type PluginTickFn = unsafe extern "C" fn(*mut u8, usize) -> TickResultRaw;
 type PluginHandleEventFn = unsafe extern "C" fn(*const u8, usize);
 type PluginShutdownFn = unsafe extern "C" fn();
+type PluginLineageStampFn = unsafe extern "C" fn() -> *const std::ffi::c_char;
+
+pub(crate) fn validate_lineage_stamp(stamp: &str) -> Result<(), LoadError> {
+    if stamp.len() == 24
+        && stamp
+            .bytes()
+            .all(|byte| byte.is_ascii_digit() || byte.is_ascii_lowercase())
+    {
+        Ok(())
+    } else {
+        Err(LoadError::InvalidLineageStamp)
+    }
+}
 
 /// A loaded, version-checked plugin. Dropping it calls `plugin_shutdown`
 /// and then unloads the library (via `libloading::Library`'s own `Drop`),
@@ -134,6 +159,47 @@ impl LoadedPlugin {
                     name: "plugin_shutdown",
                     source,
                 })?;
+        }
+
+        // Lineage handshake (optional but enforced when present).
+        // If the plugin exports `plugin_lineage_stamp`, its Base36 build
+        // payload must exactly match the host's own `CARGO_PKG_VERSION`
+        // build-metadata stamp. A mismatch means a state-reducer mismatch
+        // across the `#[repr(C)]` ABI boundary — we refuse to load.
+        // Plugins compiled without the stamp are allowed through (legacy
+        // or external plugins that pre-date the virtual branch system).
+        let host_lineage: &str = {
+            let v = env!("CARGO_PKG_VERSION");
+            if let Some(idx) = v.find("+vb.") {
+                &v[idx + 4..]
+            } else {
+                ""
+            }
+        };
+        if !host_lineage.is_empty()
+            && let Ok(sym) =
+                unsafe { library.get::<PluginLineageStampFn>(b"plugin_lineage_stamp\0") }
+        {
+            // SAFETY: `plugin_lineage_stamp` must return a pointer to a
+            // static, NUL-terminated C string. The returned pointer is
+            // only read for the duration of this block and never stored.
+            let plugin_lineage = unsafe {
+                let ptr = sym();
+                if ptr.is_null() {
+                    return Err(LoadError::InvalidLineageStamp);
+                } else {
+                    std::ffi::CStr::from_ptr(ptr)
+                        .to_str()
+                        .map_err(|_| LoadError::InvalidLineageStamp)?
+                }
+            };
+            validate_lineage_stamp(plugin_lineage)?;
+            if plugin_lineage != host_lineage {
+                return Err(LoadError::LineageMismatch {
+                    reported: plugin_lineage.to_string(),
+                    expected: host_lineage.to_string(),
+                });
+            }
         }
 
         Ok(Self {

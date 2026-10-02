@@ -196,8 +196,7 @@ mod tests {
         // Just verify cache can be created with different TTL values
         let _cache1 = LLMCache::new(1);
         let _cache2 = LLMCache::new(3600);
-        // If we get here without panic, TTL configuration works
-        assert!(true);
+        // Reaching this point without panicking is the test.
     }
 
     #[test]

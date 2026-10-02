@@ -191,7 +191,7 @@ impl CartridgePackManager {
         cartridge_bytes.extend_from_slice(&[3u8, 0, 0, 0]); // Version 3.0.0
         cartridge_bytes.extend_from_slice(&(comp_graph.nodes.len() as u32).to_le_bytes()); // Node count
         cartridge_bytes
-            .extend_from_slice(&(comp_graph.thermodynamic_free_energy as f32).to_le_bytes()); // Free energy bound
+            .extend_from_slice(&(comp_graph.accumulated_energy_cost as f32).to_le_bytes()); // Free energy bound
 
         // Persist to habit storage path if directory exists
         let habit_file = self.staging_dir.join(format!("{}.si", habit_name));

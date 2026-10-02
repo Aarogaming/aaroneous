@@ -1,11 +1,13 @@
 // LLM Providers
 // Different implementations for various LLM services
 
+mod gemini;
 mod gguf;
 pub mod local;
 mod mock;
 pub mod openai;
 
+pub use gemini::{DEFAULT_GEMINI_BASE_URL, DEFAULT_GEMINI_MODEL, GeminiProvider};
 pub use gguf::GGUFProvider;
 pub use local::LocalLLMProvider;
 pub use mock::MockProvider;
@@ -65,3 +67,4 @@ pub trait LLMProvider: Send + Sync {
     /// Used natively by the Omni Relic / Constellation system for semantic similarity mapping.
     async fn embed(&self, text: &str) -> Result<Vec<f32>>;
 }
+pub mod gemini;

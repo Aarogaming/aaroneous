@@ -10,10 +10,10 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::sync::{RwLock, mpsc};
 
-use nervous_system::slab_allocator::SlabStats;
+use ipc_bus::slab_allocator::SlabStats;
 
 #[cfg(test)]
-use nervous_system::slab_allocator::SlabAllocator;
+use ipc_bus::slab_allocator::SlabAllocator;
 
 /// Compaction Engine configuration
 #[derive(Debug, Clone)]

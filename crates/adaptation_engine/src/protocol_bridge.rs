@@ -1,5 +1,18 @@
 //! crates/adaptation_engine/src/protocol_bridge.rs
 //! Machine-Native Linking Protocol (MNLP) patch serialization and dispatch for Adaptation Engine.
+//!
+//! Dedupe-audit note (.audit/DEAD_CODE_ANALYSIS.md): reviewed alongside
+//! `crates/platform_bridge/src/protocol_bridge.rs` and
+//! `crates/omni/src/protocol_bridge.rs`. Kept separate on purpose: this file
+//! encodes `PatchProposal` (a mutation/self-repair domain type owned by this
+//! crate) into a 28-byte `MnlpPatchPacket` (magic `'CHIM'`, `u32` fields).
+//! That wire format is unrelated to and incompatible with
+//! platform_bridge's 32-byte `MnlpPerceptionPacket` (magic `b"MNLP"`) and
+//! omni's plain-JSON galaxy snapshots — different magics, field layouts, and
+//! sizes. Moving this to platform_bridge (the audit's suggested "protocol
+//! abstraction" home) would force that OS/HID-bridging crate to depend on
+//! adaptation_engine's patch-mutation types, which is a larger and riskier
+//! architectural inversion than the naming collision warrants.
 
 use anyhow::{Result, bail};
 use serde::{Deserialize, Serialize};

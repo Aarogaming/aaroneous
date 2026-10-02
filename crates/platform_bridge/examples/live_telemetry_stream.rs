@@ -34,7 +34,7 @@ fn main() -> Result<()> {
 
                 // Progress indicator every 1 second (integer seconds)
                 let elapsed_secs = start.elapsed().as_secs();
-                if elapsed_secs > 0 && elapsed_secs % 1 == 0 {
+                if elapsed_secs > 0 && elapsed_secs.is_multiple_of(1) {
                     println!(
                         "Time: {}s | Tokens emitted: {}, Rate: {:.2} tok/s",
                         elapsed_secs,
@@ -52,7 +52,11 @@ fn main() -> Result<()> {
         // In production: stream tokens to RLS adaptor for real-time convergence analysis
 
         // Checkpoint every 1ms
-        if start.elapsed().as_micros() % (SAMPLE_INTERVAL_US as u128) == 0 {
+        if start
+            .elapsed()
+            .as_micros()
+            .is_multiple_of(SAMPLE_INTERVAL_US as u128)
+        {
             // Verify zero heap allocations during active sampling
             // (Rust's stack-allocated state ensures this)
             allocation_count += 1; // Placeholder counter

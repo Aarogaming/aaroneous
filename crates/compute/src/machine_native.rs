@@ -48,7 +48,7 @@ impl MachineNativePredictionEngine {
                 .gpu_accelerator
                 .compute_dot_product(&energy_vec, &weights)
                 .unwrap_or(0.05);
-            optimized.thermodynamic_free_energy = gpu_dot.max(0.001);
+            optimized.accumulated_energy_cost = gpu_dot.max(0.001);
         }
 
         for node in optimized.nodes.values_mut() {
@@ -57,9 +57,7 @@ impl MachineNativePredictionEngine {
         }
 
         let node_count = optimized.nodes.len().max(1) as f64;
-        optimized.shannon_entropy = (optimized.thermodynamic_free_energy / node_count)
-            .ln()
-            .abs();
+        optimized.shannon_entropy = (optimized.accumulated_energy_cost / node_count).ln().abs();
 
         Ok(optimized)
     }
@@ -150,7 +148,7 @@ impl EdgeLinguisticLens {
         format!(
             "Machine-Native Computation Graph: {} nodes, Free Energy: {:.4} J, Entropy: {:.4} bits, Dimensional Consistency: Verified.",
             graph.nodes.len(),
-            graph.thermodynamic_free_energy,
+            graph.accumulated_energy_cost,
             graph.shannon_entropy
         )
     }
@@ -198,7 +196,7 @@ mod tests {
         let mut engine = MachineNativePredictionEngine::default();
         let optimized = engine.predict_optimal_mutation(&graph).unwrap();
 
-        assert!(optimized.thermodynamic_free_energy > 0.0);
+        assert!(optimized.accumulated_energy_cost > 0.0);
         let loss = engine.train_graph_step(&optimized, 0.05).unwrap();
         assert!(loss >= 0.0);
 

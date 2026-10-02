@@ -1,0 +1,55 @@
+[package]
+name = "host"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Aaroneous composition root"
+license.workspace = true
+repository.workspace = true
+
+[package.metadata.cratify]
+profile = "control"
+
+[lints.cargo]
+# These binary names are retained as stable operator-facing entrypoints.
+non_kebab_case_bins = "allow"
+
+[dependencies]
+hypervisor = { path = "../hypervisor" }
+hive_mind = { path = "../../crates/hive_mind" }
+adaptation_engine = { path = "../../crates/adaptation_engine" }
+adaptation_plane = { path = "../../crates/adaptation_plane" }
+compute = { path = "../../crates/compute" }
+ipc_bus = { path = "../../crates/ipc_bus" }
+omni = { path = "../../crates/omni" }
+orchestrator = { path = "../../crates/orchestrator" }
+platform_bridge = { path = "../../crates/platform_bridge", features = ["native-win32"] }
+specialists = { package = "capabilities", path = "../../crates/capabilities" }
+transpiler = { path = "../../crates/transpiler" }
+tokio = { workspace = true }
+tracing = { workspace = true }
+anyhow = "1.0"
+paths = { path = "../../crates/paths" }
+clap = { version = "4.5", features = ["derive", "cargo"] }
+ctrlc = "3.4"
+parking_lot = "0.12"
+serde_json = { workspace = true }
+tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
+uuid = { version = "1.0", features = ["v4", "serde", "v7"] }
+
+[[bin]]
+name = "hypervisor"
+path = "src/hypervisor.rs"
+
+[[bin]]
+name = "profile_compiler"
+path = "src/profile_compiler.rs"
+
+[[bin]]
+name = "shm_dump"
+path = "src/shm_dump.rs"
+
+[[bin]]
+name = "spatial_kinetic"
+path = "src/spatial_kinetic.rs"

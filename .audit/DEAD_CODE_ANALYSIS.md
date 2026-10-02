@@ -66,9 +66,7 @@ The following code patterns exist in multiple crate locations, indicating duplic
 
 ---
 
-## 4. Fabrication Directory Issue
 
-Location: `data/fabrication/`  
 Contains: 153+ independent crate prototypes with their own `Cargo.lock` files  
 Status: **NOT PART OF WORKSPACE** — these are experimental prototypes, not production code.
 
@@ -93,7 +91,6 @@ Status: **NOT PART OF WORKSPACE** — these are experimental prototypes, not pro
 - Duplicate code increasing maintenance burden
 
 ### Medium
-- Fabrication directory confusion (needs documentation)
 
 ---
 
@@ -102,7 +99,6 @@ Status: **NOT PART OF WORKSPACE** — these are experimental prototypes, not pro
 ### Phase 1: Safety & Stability (Week 1-2)
 1. Audit all `.unwrap()` calls, create migration plan
 2. Remove dead code files from src/ tree
-3. Document fabrication directory as experimental
 
 ### Phase 2: Implementation (Week 3-6)  
 4. Replace simulated stubs with real implementations:

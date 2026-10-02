@@ -9,9 +9,6 @@ pub struct NodePermissions {
     pub requires_hitl: bool,
 }
 
-#[deprecated(since = "0.3.3", note = "Use NodePermissions instead")]
-pub type HoxPermissions = NodePermissions;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct McpToolDefinition {
     pub name: String,
@@ -27,17 +24,11 @@ pub struct ModuleDefinition {
     pub mcp_tools: Vec<McpToolDefinition>, // Tools exposed by this module/node
 }
 
-#[deprecated(since = "0.3.3", note = "Use ModuleDefinition instead")]
-pub type EnzymeGenetics = ModuleDefinition;
-
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct NodeMap {
     pub schema_version: String,
     pub enzymes: HashMap<String, ModuleDefinition>,
 }
-
-#[deprecated(since = "0.3.3", note = "Use NodeMap instead")]
-pub type HoxMap = NodeMap;
 
 impl Default for NodeMap {
     fn default() -> Self {
@@ -119,24 +110,11 @@ impl Default for NodeMap {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::any::TypeId;
 
     #[test]
-    #[allow(deprecated)]
-    fn test_nodemap_hoxmap_equivalence() {
-        assert_eq!(TypeId::of::<NodeMap>(), TypeId::of::<HoxMap>());
-        assert_eq!(
-            TypeId::of::<NodePermissions>(),
-            TypeId::of::<HoxPermissions>()
-        );
-        assert_eq!(
-            TypeId::of::<ModuleDefinition>(),
-            TypeId::of::<EnzymeGenetics>()
-        );
-
+    fn test_nodemap_default_initialization() {
         let node_map = NodeMap::default();
-        let hox_map: HoxMap = node_map.clone();
-        assert_eq!(node_map.schema_version, hox_map.schema_version);
+        assert_eq!(node_map.schema_version, "3.0");
         assert_eq!(node_map.enzymes.len(), 3);
     }
 }

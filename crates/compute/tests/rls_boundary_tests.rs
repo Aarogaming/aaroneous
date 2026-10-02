@@ -140,8 +140,8 @@ fn apply_rls_update(
     }
 
     // Apply forgetting factor with saturation
-    cov.p00 = (cov.p00 * lambda).min(1e8).max(1e-8);
-    cov.p11 = (cov.p11 * lambda).min(1e8).max(1e-8);
+    cov.p00 = (cov.p00 * lambda).clamp(1e-8, 1e8);
+    cov.p11 = (cov.p11 * lambda).clamp(1e-8, 1e8);
 
     Ok(())
 }
@@ -174,13 +174,13 @@ fn clamp_covariance(cov: &CovarianceMatrix) -> Result<CovarianceMatrix, String> 
     let mut clamped = *cov;
 
     // Clamp diagonals to [epsilon, max_bound]
-    clamped.p00 = clamped.p00.max(1e-8).min(1e8);
-    clamped.p11 = clamped.p11.max(1e-8).min(1e8);
+    clamped.p00 = clamped.p00.clamp(1e-8, 1e8);
+    clamped.p11 = clamped.p11.clamp(1e-8, 1e8);
 
     // Clamp off-diagonals to [-sqrt(p00*p11), sqrt(p00*p11)]
     let max_off = (clamped.p00 * clamped.p11).sqrt();
-    clamped.p01 = clamped.p01.max(-max_off).min(max_off);
-    clamped.p10 = clamped.p10.max(-max_off).min(max_off);
+    clamped.p01 = clamped.p01.clamp(-max_off, max_off);
+    clamped.p10 = clamped.p10.clamp(-max_off, max_off);
 
     Ok(clamped)
 }

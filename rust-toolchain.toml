@@ -1,0 +1,17 @@
+[toolchain]
+# Pinned to the "stable" channel name itself (not an exact version like
+# "1.98.1") deliberately: CI's dtolnay/rust-toolchain@stable step installs
+# targets/components onto rustup's "stable" toolchain identity specifically.
+# Pinning an exact version here would give rustup a *different* toolchain
+# identity locally than the one CI already populated with the
+# thumbv7em-none-eabihf/wasm32-unknown-unknown targets gate 4b/4c need,
+# reproducing this file's original problem one level down (found the hard
+# way: this exact mismatch broke gate 4b in CI on the PR that introduced
+# this file). "stable" still stops the real problem this file exists for --
+# local dev floating on whatever *nightly* happened to be installed, which
+# is why the same gate command produced different clippy results on
+# different runs (see aaroneous-devtools's
+# AUDIT_2026-09-26_DOCUMENTATION_AND_PROCESS.md, Finding 3) -- while staying
+# byte-for-byte the same toolchain identity CI uses.
+channel = "stable"
+components = ["rustfmt", "clippy"]

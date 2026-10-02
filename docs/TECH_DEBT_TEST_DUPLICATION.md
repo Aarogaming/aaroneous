@@ -72,82 +72,78 @@ rewriting them to make real assertions is a substantially larger, separate
 undertaking from removing an already-redundant copy, and is **not** done as
 part of this pass. Flagged here so it isn't lost.
 
-### 2.2 `crates/mcp_server` — resolved by extraction, not deletion
+### 2.2 `crates/mcp_server` — recommended for removal, **not yet executed**
 
-**The finding** (as originally recorded here): `crates/mcp_server` was a
-workspace member with no `[[bin]]` target and zero in-workspace references,
-duplicating a much-earlier, smaller snapshot of `core/hypervisor`'s
-`mcp_service` module (`service.rs`: 343 lines there vs. 1612 in hypervisor;
-`capability.rs`/`config.rs`/`transport.rs` byte-identical stale copies) —
-see git history for the full original writeup, kept here in §2.2 only in
-outline since the resolution below supersedes it.
+**The finding.** `crates/mcp_server` is a workspace member
+(`Cargo.toml` → `[workspace] members`) that:
 
-**Why deletion was the wrong fix.** The live `mcp_service` code that grew up
-inside `core/hypervisor` was never supposed to live there long-term: MCP is
-an HTTP/SSE/JSON-RPC protocol adapter — a presentation-layer concern per
-AGENTS.md's own component topology (`core/hypervisor`: "Headless microkernel
-host & execution loop" vs. `crates/api`/`crates/studio_hud`: "Presentation
-layer") — and `crates/mcp_server`'s existence (and the architecture docs
-already describing it as the real Ring-3 MCP crate) show that separation was
-the intended design all along, just never finished. Deleting the stale
-`crates/mcp_server` stub would have permanently fused MCP into the kernel
-crate instead of finishing the separation it was clearly meant to have.
+- Has **no `[[bin]]` target** of its own.
+- Is **never referenced** anywhere in the workspace — `grep -rn "use mcp_server"`
+  and `grep -rn "mcp_server::"` across every `.rs` file in the repository
+  return zero hits. Nothing depends on it, nothing runs it.
+- Duplicates a subset of `core/hypervisor`'s modules
+  (`mcp_service/{auth,capability,config,http_api,mod,service,transport}.rs`,
+  plus `action_executor.rs`, `capability_broker.rs`, `decision_engine.rs`,
+  `micro_vm.rs`) at a **much earlier, smaller stage of development**:
 
-**What was actually done instead**, across two commits:
+  | File | `crates/mcp_server` | `core/hypervisor` |
+  |---|---:|---:|
+  | `mcp_service/service.rs` | 343 lines | 1612 lines |
+  | `mcp_service/mod.rs` | 11 lines (no docs, no `transport` re-export) | 76 lines (full module docs, `TransportConfig`, `HttpServer`, `OAuth2Auth` re-exports) |
+  | `action_executor.rs` | 75 lines | 585 lines |
+  | `capability_broker.rs` | 207 lines | 1098 lines |
+  | `decision_engine.rs` | 49 lines | 1002 lines |
+  | `micro_vm.rs` | 13 lines | 485 lines |
 
-1. **Encapsulation** (prerequisite): `mcp_service::McpService` used to reach
-   directly into `Federation`'s fields (`dynamic`, `results`, `biology`) and
-   specialist internals in ~15 places. Introduced `mcp_service::backend`'s
-   `IntentBackend` trait — everything MCP needs from "the running hive,"
-   expressed in Federation-agnostic types — and `impl IntentBackend for
-   Federation` in `core/hypervisor/src/federation/cluster/mcp_backend.rs`.
-   Verified behavior-preserving: `cargo test -p hypervisor --lib` unchanged
-   at 1117 tests before the move.
-2. **Extraction**: moved `mcp_service/` (now depending only on the
-   `IntentBackend` trait, never on `Federation` by name — a hard Cargo
-   requirement, not a style choice: `crates/mcp_server` depending on
-   `hypervisor`'s lib while `hypervisor`'s own binary depends on
-   `mcp_server` would be a circular package dependency, which Cargo rejects
-   regardless of which target uses which) into `crates/mcp_server`, deleted
-   the stale duplicate content that was there before (`action_executor.rs`,
-   `capability_broker.rs`, `decision_engine.rs`, `micro_vm.rs`,
-   `mcp_bridge/` — all unrelated, unreferenced early stubs), added
-   `mcp_server` as a dependency of `hypervisor`'s `Cargo.toml`, and
-   repointed `core/hypervisor/bin/hypervisor.rs`'s `run_mcp_pipeline` at it.
-   `core/hypervisor/src/mcp_service/` no longer exists — there is exactly
-   one copy of this code now, and it lives where the architecture docs
-   already said it should.
+  `mcp_service/capability.rs`, `config.rs`, and `transport.rs` are **byte-for-byte
+  identical** between the two copies — further evidence `mcp_server` is a stale
+  snapshot rather than an intentionally-independent implementation.
+- The **actual, live** MCP server this workspace runs is
+  `hypervisor::mcp_service`, instantiated directly in
+  `core/hypervisor/bin/hypervisor.rs` (`McpService::new(config)`,
+  `HttpServer::new(addr, mcp_cfg)`).
+- Root-level docs (`MASTER_ROADMAP.md`, `STRATEGIC_VISION.md`,
+  `WHAT_EXISTS_TODAY.md`, `docs/architecture/MASTER_ARCHITECTURE.md`,
+  `docs/architecture/architecture_overview.md`) describe `crates/mcp_server`
+  as **"Complete"**, **"fully integrated,"** and the live Ring-3 MCP server
+  "wired directly to `capabilities::ToolRegistry`" — this description is
+  **no longer accurate**; that role is filled by `hypervisor::mcp_service`.
 
-**Result**: the five root-level docs (`MASTER_ROADMAP.md`,
-`STRATEGIC_VISION.md`, `WHAT_EXISTS_TODAY.md`,
-`docs/architecture/MASTER_ARCHITECTURE.md`,
-`docs/architecture/architecture_overview.md`) that describe `crates/mcp_server`
-as the live Ring-3 MCP crate "wired directly to `capabilities::ToolRegistry`"
-needed **no correction** — they were aspirationally accurate and are now
-simply accurate. `cargo test -p hypervisor --lib` (1100 tests, exactly
-1117 − 17 for the `mcp_service` unit tests that moved with the code),
-`cargo test -p mcp_server` (17 passed + 1 doctest), `cargo check --workspace
---all-targets`, `cargo fmt`, and `cargo run -p ast_auditor -- audit
-core/hypervisor/ crates/mcp_server/` (0 violations, 287 files) all confirm
-this. Resolved 17 of the original 18 `mcp_server`/hypervisor collisions (the
-18th, `test_default_config`, turned out to be a coincidental match against
-an unrelated third file, `core/hypervisor/src/config/predictive_models_config.rs`
-— real, but a §3-class footgun, not this section's architectural
-duplication).
+This is the single largest cluster of the 78 collisions: 18 of the 56
+remaining names in §3 below are `mcp_server` vs. `hypervisor::mcp_service`
+pairs.
 
-**Side finding, not acted on**: `run_mcp_pipeline` (the `hypervisor mcp`
-CLI subcommand) has never actually attached a live `Federation` to the
-`McpService` it starts — `with_federation`/`with_backend` has zero callers
-in `bin/hypervisor.rs`. Every `ask_*` tool call through that subcommand
-always hits the mock-LLM fallback in production today. Pre-existing,
-unrelated to this extraction (confirmed unchanged before/after), and out
-of scope here — whether that's a bug or a deliberate lightweight mode is
-a product decision for whoever picks it up next.
+**Why this wasn't executed in this pass:** removing an entire workspace
+member (directory deletion + `Cargo.toml` membership edit + correcting five
+root-level architecture/roadmap documents) was blocked by this session's own
+auto-mode guardrails as a "modify shared resources" action requiring
+explicit human sign-off, rather than something to route around via another
+tool. That caution turned out to matter: **by the time this finding was
+re-verified (2026-09-29/30), it was already stale.** A separate, concurrent
+effort had turned `crates/mcp_server` into a real, independently-evolving
+MCP server with its own capability-token security layer
+(`action_executor.rs`, `capability_broker.rs`, `decision_engine.rs`,
+`micro_vm.rs`, `mcp_bridge/` — all still wired into `lib.rs`, with its own
+growing test suite) — it is no longer dead code, no longer a stale snapshot,
+and deleting it now would destroy that work.
+
+**Recommendation, revised:** do **not** delete `crates/mcp_server`. The
+`core/hypervisor::mcp_service` vs. `crates/mcp_server::mcp_service`
+duplication (and the `test_capability_creation`-style collisions it causes)
+is real but is now a reconciliation problem, not a dead-code-removal one:
+two implementations of the same protocol surface are evolving in different
+directions (`hypervisor`'s Federation-coupled version vs. `mcp_server`'s
+capability-token-gated version) and deciding which one the project actually
+wants — or how to merge the two — is an architecture decision for whoever
+owns that area next, not something to resolve by picking a side here. Until
+that decision is made, the collisions in this cluster should be left alone
+rather than mass-renamed or deleted out from under either side.
 
 ## 3. Remaining collisions (informational, not actioned)
 
-After §2.1 and §2.2's fixes, 39 collisions remain (down from the original
-78: 78 → 56 → 39). The rest fall into two buckets that are **not**
+After §2.1's fix, 56 collisions remain (down from 78). Of those, **18** are
+the `mcp_server`/`hypervisor` pairs in §2.2, resolved by the same follow-up
+that removes the crate. The rest fall into two buckets that are **not**
 recommended for action:
 
 - **Parallel-implementation test suites that are supposed to look alike.**
@@ -162,7 +158,7 @@ recommended for action:
   `llm_gateway/rate_limiter.rs`), `test_default_config` (three unrelated
   config modules), `test_statistics` (three unrelated stats-tracking
   structs). These are a real (if minor) footgun for `cargo test <name>`,
-  but mass-renaming ~39 tests across unrelated crates for a cosmetic-only
+  but mass-renaming ~35 tests across unrelated crates for a cosmetic-only
   win is out of scope for this pass. Left as backlog if a future session
   wants to pursue AGENTS.md-style hygiene renames.
 

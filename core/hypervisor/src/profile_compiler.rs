@@ -21,7 +21,7 @@
 //!
 //! ```no_run
 //! use std::path::PathBuf;
-//! use hypervisor::profile_compiler::{GenomeCompiler, CompileConfig};
+//! use hypervisor::profile_compiler::{CompileConfig, ProfileCompiler};
 //!
 //! let config = CompileConfig {
 //!     input: PathBuf::from("models/my-model.gguf"),
@@ -29,7 +29,7 @@
 //!     num_tracks: 16,
 //!     ..Default::default()
 //! };
-//! let mut compiler = GenomeCompiler::new(config);
+//! let mut compiler = ProfileCompiler::new(config);
 //! compiler.compile()?;
 //! # Ok::<(), anyhow::Error>(())
 //! ```
@@ -299,9 +299,6 @@ impl Default for CompileConfig {
 pub struct ProfileCompiler {
     config: CompileConfig,
 }
-
-#[deprecated(since = "0.3.3", note = "Use ProfileCompiler instead")]
-pub type GenomeCompiler = ProfileCompiler;
 
 impl ProfileCompiler {
     pub fn new(config: CompileConfig) -> Self {
@@ -1310,15 +1307,5 @@ mod tests {
         assert_eq!(bit_to_float(float_to_2bit(-0.5)), -0.5);
         assert_eq!(bit_to_float(float_to_2bit(0.5)), 0.5);
         assert_eq!(bit_to_float(float_to_2bit(2.0)), 1.5);
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_profile_compiler_alias_equivalence() {
-        use std::any::TypeId;
-        assert_eq!(
-            TypeId::of::<ProfileCompiler>(),
-            TypeId::of::<GenomeCompiler>()
-        );
     }
 }

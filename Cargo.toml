@@ -22,6 +22,7 @@ members = [
     "crates/platform_bridge",
     "crates/paths",
     "crates/wire",
+    "crates/scan_core",
     "core/hypervisor",
     "sdk/rust",
     "crates/core-contracts",
@@ -29,12 +30,19 @@ members = [
     "crates/cratify",
     "crates/studio_hud",
     "crates/llm_gateway",
+    "crates/llm_gateway_types",
     "crates/runtime_monitor",
     "crates/runtime_monitor/runtime_monitor_bench",
     "crates/mcp_server",
     "crates/orchestration_plane",
     "crates/compliance_auditor",
     "xtask",
+    "benches",
+    "crates/local_inference",
+    "crates/cratify_core",
+    "crates/paths_core",
+    "crates/hive_mind",
+    "core/host",
 ]
 
 exclude = [
@@ -48,7 +56,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.3.2"
+version = "0.3.2+vb.13r032t5kq5mq27403b0vil3"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Aaron"]
@@ -77,4 +85,3 @@ lto = "fat"            # Cross-crate inlining across si_ir, compute, and platfor
 codegen-units = 1      # Maximizes compiler optimization across the entire workspace
 panic = "abort"        # Removes unwinding landing pads (makes Cranelift W^X memory leaner)
 strip = true           # Strips debug symbols from the final standalone binary
-

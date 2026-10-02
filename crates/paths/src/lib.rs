@@ -84,11 +84,7 @@ impl WorkspacePaths {
             Self::discover_root_from_system()
         };
 
-        let temp_dir = config.temp_dir.clone().unwrap_or_else(|| {
-            dirs::cache_dir()
-                .map(|p| p.join("Aaroneous").join("tmp"))
-                .unwrap_or_else(|| root.join(".tmp"))
-        });
+        let temp_dir = config.temp_dir.clone().unwrap_or_else(|| root.join(".tmp"));
 
         let data_root = Self::discover_external_data_root(config, &root);
 
@@ -115,36 +111,13 @@ impl WorkspacePaths {
         root.join("data")
     }
 
-    #[allow(ambient_authority)]
     fn discover_root_from_system() -> PathBuf {
         let is_repo_root = |dir: &Path| {
             dir.join("Cargo.toml").exists()
                 && (dir.join("crates").exists() || dir.join("core").exists())
         };
 
-        // 1. Check CARGO_MANIFEST_DIR (active during cargo test/run with external target-dir)
-        if let Ok(manifest_dir) = std::env::var("CARGO_MANIFEST_DIR") {
-            let mut curr = Some(Path::new(&manifest_dir));
-            while let Some(dir) = curr {
-                if is_repo_root(dir) {
-                    return dir.to_path_buf();
-                }
-                curr = dir.parent();
-            }
-        }
-
-        // 2. Check current working directory and traverse upward
-        if let Ok(cwd) = std::env::current_dir() {
-            let mut curr = Some(cwd.as_path());
-            while let Some(dir) = curr {
-                if is_repo_root(dir) {
-                    return dir.to_path_buf();
-                }
-                curr = dir.parent();
-            }
-        }
-
-        // 3. Check current executable parent directory and traverse upward
+        // 1. Check current executable parent directory and traverse upward
         if let Ok(exe) = std::env::current_exe() {
             let mut curr = exe.parent();
             while let Some(dir) = curr {
@@ -155,7 +128,7 @@ impl WorkspacePaths {
             }
         }
 
-        // 4. Default to standard OS Application Data Directory
+        // 2. Default to standard OS Application Data Directory
         dirs::data_local_dir()
             .map(|p| p.join("Aaroneous"))
             .unwrap_or_else(|| PathBuf::from("."))
@@ -163,9 +136,7 @@ impl WorkspacePaths {
 
     /// Construct from an explicit root path.
     pub fn from_root(root: PathBuf) -> Self {
-        let temp_dir = dirs::cache_dir()
-            .map(|p| p.join("Aaroneous").join("tmp"))
-            .unwrap_or_else(|| root.join(".tmp"));
+        let temp_dir = root.join(".tmp");
         let data_root = Self::discover_external_data_root(&WorkspacePathsConfig::new(), &root);
         Self {
             root,
@@ -275,11 +246,6 @@ impl WorkspacePaths {
         self.root.join("node.db")
     }
 
-    #[deprecated(since = "0.3.3", note = "Use node_db instead")]
-    pub fn hox_db(&self) -> PathBuf {
-        self.node_db()
-    }
-
     pub fn models_inbox(&self) -> PathBuf {
         self.models().join("inbox")
     }
@@ -309,11 +275,6 @@ impl WorkspacePaths {
         self.agent_preset(name)
     }
 
-    #[deprecated(since = "0.3.3", note = "Use node_preset or agent_preset instead")]
-    pub fn sovereign_hox_preset(&self, name: &str) -> PathBuf {
-        self.node_preset(name)
-    }
-
     pub fn module_preset(&self, name: &str) -> PathBuf {
         let module_store = self
             .registry()
@@ -323,11 +284,6 @@ impl WorkspacePaths {
         } else {
             self.node_preset(name)
         }
-    }
-
-    #[deprecated(since = "0.3.3", note = "Use module_preset instead")]
-    pub fn relic_hox_preset(&self, name: &str) -> PathBuf {
-        self.module_preset(name)
     }
 
     pub fn omni_galaxy_map(&self) -> PathBuf {
@@ -786,9 +742,7 @@ mod tests {
 
         assert_eq!(paths.agent_preset("sentinel"), legacy_hox);
         assert_eq!(paths.node_preset("sentinel"), legacy_hox);
-        assert_eq!(paths.sovereign_hox_preset("sentinel"), legacy_hox);
         assert_eq!(paths.module_preset("sentinel"), legacy_hox);
-        assert_eq!(paths.relic_hox_preset("sentinel"), legacy_hox);
 
         // Case 2: Canonical agent_*.json exists -> takes precedence over hox_*.json
         let canonical_agent = registry.join("agent_sentinel.json");
@@ -796,16 +750,11 @@ mod tests {
 
         assert_eq!(paths.agent_preset("sentinel"), canonical_agent);
         assert_eq!(paths.node_preset("sentinel"), canonical_agent);
-        assert_eq!(paths.sovereign_hox_preset("sentinel"), canonical_agent);
 
-        // Case 3: Canonical module_store_*.json exists -> takes precedence for module/relic presets
+        // Case 3: Canonical module_store_*.json exists -> takes precedence for module presets
         let module_store = registry.join("module_store_sentinel.json");
         std::fs::write(&module_store, b"{}").unwrap();
 
         assert_eq!(paths.module_preset("sentinel"), module_store);
-        assert_eq!(paths.relic_hox_preset("sentinel"), module_store);
-
-        // Case 4: node_db and hox_db equivalence
-        assert_eq!(paths.node_db(), paths.hox_db());
     }
 }

@@ -16,7 +16,7 @@ name = "compliance_auditor"
 path = "src/main.rs"
 
 [dependencies]
-ast_auditor = { path = "../ast_auditor" }
+cratify_core = { path = "../cratify_core" }
 llm_gateway = { path = "../llm_gateway" }
 
 clap = { version = "4.4", features = ["derive"] }

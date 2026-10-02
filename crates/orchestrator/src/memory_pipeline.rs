@@ -33,7 +33,7 @@ impl EpisodicInsertionPipeline {
                 context_tag,
                 raw_text.chars().take(64).collect::<String>()
             ),
-            thermodynamic_free_energy: 1.0,
+            accumulated_energy_cost: 1.0,
             crystallized_handle_idx: None,
             timestamp_ms: now.as_millis() as u64,
         };

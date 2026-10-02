@@ -161,8 +161,10 @@ mod tests {
     fn test_ot_gateway_telemetry_ingestion() {
         let (gateway, _rx) = OtEdgeGateway::new(OtBridgeConfig::default());
 
-        let mut pkt = TelemetryPacket::default();
-        pkt.sequence = 1;
+        let mut pkt = TelemetryPacket {
+            sequence: 1,
+            ..Default::default()
+        };
         pkt.channels[0] = Some(ChannelValue {
             channel_id: 0,
             kind: ChannelKind::AnalogInput,
@@ -185,7 +187,7 @@ mod tests {
         let state = gateway.read_registers();
         assert_eq!(state.holding_registers[0], 512);
         assert_eq!(state.holding_registers[1], 1);
-        assert_eq!(state.discrete_inputs[1], true);
+        assert!(state.discrete_inputs[1]);
     }
 
     #[test]
@@ -197,7 +199,7 @@ mod tests {
 
         let state = gateway.read_registers();
         assert_eq!(state.holding_registers[5], 1234);
-        assert_eq!(state.discrete_inputs[10], true);
+        assert!(state.discrete_inputs[10]);
 
         // Bounds check errors
         assert!(gateway.set_holding_register(100, 1).is_err());

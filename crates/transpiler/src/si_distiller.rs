@@ -209,7 +209,7 @@ impl SiDistillationMiner {
             raw_prompt.len() as f32,
             source_code.len() as f32,
             lines.len() as f32,
-            graph.thermodynamic_free_energy as f32,
+            graph.accumulated_energy_cost as f32,
         ];
 
         let packet = SiThoughtPacket::new(goal_opcode, unit, state_tensors, graph);
@@ -260,7 +260,7 @@ impl SiDistillationMiner {
             let packet = self.distill_code_to_si(opcode, unit, prompt, code)?;
             let bin = packet.to_binary()?;
             native_bytes += bin.len();
-            total_energy += packet.header.thermodynamic_free_energy;
+            total_energy += packet.header.accumulated_energy_cost;
             count += 1;
         }
 
@@ -313,7 +313,7 @@ impl SiDistillationMiner {
                 self.distill_code_to_si(*opcode, DimensionalUnit::DIMENSIONLESS, prompt, code)?;
             let bin = packet.to_binary()?;
             native_bytes += bin.len();
-            total_energy += packet.header.thermodynamic_free_energy;
+            total_energy += packet.header.accumulated_energy_cost;
             count += 1;
         }
 

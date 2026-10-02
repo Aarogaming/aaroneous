@@ -14,7 +14,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 pub struct GenerationSnapshot<T> {
     pub generation_id: u64,
     pub timestamp_ms: u64,
-    pub thermodynamic_free_energy: f64,
+    pub accumulated_energy_cost: f64,
     pub state: T,
     pub is_verified_stable: bool,
 }
@@ -74,7 +74,7 @@ impl<T: Clone> GenerationalJournal<T> {
         self.snapshots.push_back(GenerationSnapshot {
             generation_id,
             timestamp_ms: ts,
-            thermodynamic_free_energy: free_energy,
+            accumulated_energy_cost: free_energy,
             state,
             is_verified_stable: true,
         });

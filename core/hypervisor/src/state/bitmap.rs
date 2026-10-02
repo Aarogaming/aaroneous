@@ -10,8 +10,11 @@ pub struct Bitmap {
 }
 
 impl Bitmap {
-    /// Number of bits supported (must match `MAX_TASKS`).
-    pub const CAPACITY: usize = crate::constants::MAX_TASKS;
+    /// Number of bits supported (must match the ACC's maximum task count).
+    ///
+    /// Inlined from the former `crate::constants::MAX_TASKS` (module removed
+    /// in the hive_mind/host crate split); this is the sole remaining user.
+    pub const CAPACITY: usize = 1024;
 
     /// Create a new empty bitmap.
     #[inline]

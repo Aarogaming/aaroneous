@@ -1,4 +1,4 @@
-use crate::unified_registry::{EntryMeta, Registry};
+use crate::unified_registry::Registry;
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
 /// Genome Trait Loader — loads trait presets from JSON files in `registry/genome/traits/`.
@@ -117,7 +117,9 @@ pub fn register_traits(registry: &mut Registry<GenomeTrait>, traits_dir: &Path) 
 
     for trait_data in traits {
         let id = trait_data.trait_id.clone();
-        let meta = EntryMeta::new("1.0.0").with_tags(vec!["genome-trait".into()]);
+        let meta = registry
+            .create_meta("1.0.0")
+            .with_tags(vec!["genome-trait".into()]);
 
         if let Err(e) = registry.register(id, trait_data, meta) {
             warn!("Failed to register trait: {}", e);
@@ -131,7 +133,6 @@ pub fn register_traits(registry: &mut Registry<GenomeTrait>, traits_dir: &Path) 
 }
 
 #[cfg(test)]
-#[allow(ambient_authority)]
 mod tests {
     use super::*;
     use crate::unified_registry::RegistryConfig;
@@ -140,8 +141,8 @@ mod tests {
 
     #[test]
     fn test_load_trait_file() {
-        let dir = std::env::temp_dir().join("test_genome_traits");
-        std::fs::create_dir_all(&dir).ok();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
 
         let json = r#"{
             "trait_id": "test_trait",
@@ -159,30 +160,27 @@ mod tests {
         let mut f = File::create(&path).unwrap();
         f.write_all(json.as_bytes()).unwrap();
 
-        let traits = load_traits_from_dir(&dir).unwrap();
+        let traits = load_traits_from_dir(dir).unwrap();
         assert_eq!(traits.len(), 1);
         assert_eq!(traits[0].trait_id, "test_trait");
         assert_eq!(
             traits[0].persona_modifiers.primary_archetype.as_deref(),
             Some("Tester")
         );
-
-        std::fs::remove_dir_all(&dir).ok();
     }
 
     #[test]
     fn test_register_traits() {
-        let dir = std::env::temp_dir().join("test_genome_traits2");
-        std::fs::create_dir_all(&dir).ok();
+        let tmp_dir = tempfile::tempdir().unwrap();
+        let dir = tmp_dir.path();
 
         let json = r#"{"trait_id": "alpha", "description": "Alpha trait"}"#;
         std::fs::write(dir.join("alpha.json"), json).unwrap();
 
-        let mut registry = Registry::<GenomeTrait>::new(RegistryConfig::default());
-        let count = register_traits(&mut registry, &dir).unwrap();
+        let clock: crate::unified_registry::ClockSource = std::sync::Arc::new(|| 1000);
+        let mut registry = Registry::<GenomeTrait>::new(RegistryConfig::default(), clock);
+        let count = register_traits(&mut registry, dir).unwrap();
         assert_eq!(count, 1);
         assert!(registry.get("alpha").is_some());
-
-        std::fs::remove_dir_all(&dir).ok();
     }
 }

@@ -46,19 +46,173 @@
 
 use api::UiCartridge;
 
-/// Registry of in-process UI cartridges.
+/// RFC-0006 Stable Command Buffer ABI Header
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct CommandBufferHeader {
+    pub wire_version: u32,
+    pub command_count: u32,
+    pub payload_len: u32,
+    pub _reserved: u32,
+}
+
+/// Command Opcode discriminants for RFC-0006 stable ABI
+#[repr(u32)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CommandOp {
+    Label = 0,
+    Button = 1,
+    BeginHorizontal = 2,
+    BeginVertical = 3,
+    End = 4,
+    Spacing = 5,
+}
+
+/// RFC-0006 Fixed-Size `#[repr(C)]` Draw Command Record
+#[repr(C)]
+#[derive(Debug, Clone, Copy)]
+pub struct Command {
+    pub op: u32,
+    pub _pad0: u32,
+    pub widget_id: u64,
+    pub text: [u8; 64],
+    pub text_len: u16,
+    pub _pad1: u16,
+    pub x: f32,
+    pub y: f32,
+    pub color_rgba: [u8; 4],
+}
+
+impl Command {
+    pub fn op(&self) -> CommandOp {
+        match self.op {
+            0 => CommandOp::Label,
+            1 => CommandOp::Button,
+            2 => CommandOp::BeginHorizontal,
+            3 => CommandOp::BeginVertical,
+            4 => CommandOp::End,
+            5 => CommandOp::Spacing,
+            _ => CommandOp::Label,
+        }
+    }
+
+    pub fn text_as_str(&self) -> &str {
+        let valid_len = (self.text_len as usize).min(self.text.len());
+        let slice = &self.text[..valid_len];
+        let nul_pos = slice.iter().position(|&b| b == 0).unwrap_or(valid_len);
+        std::str::from_utf8(&slice[..nul_pos]).unwrap_or("")
+    }
+}
+
+/// RFC-0006 FFI Tick Execution Result
+#[repr(C)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TickResult {
+    Ok = 0,
+    PluginFaulted = 1,
+}
+
+use std::collections::HashMap;
+
+/// Registry of in-process UI cartridges and host-side command replay engine.
 #[derive(Default)]
 pub struct PluginManager {
     pub static_cartridges: Vec<Box<dyn UiCartridge>>,
+    pub fault_counts: HashMap<usize, usize>,
 }
 
 impl PluginManager {
+    /// Maximum consecutive faults before automatic eviction per RFC-0006 Section 7.
+    pub const MAX_CONSECUTIVE_FAULTS: usize = 3;
+
     pub fn new() -> Self {
         Self::default()
     }
 
     pub fn load_cartridge(&mut self, cartridge: Box<dyn UiCartridge>) {
         self.static_cartridges.push(cartridge);
+    }
+
+    /// Records tick execution result for a cartridge. If consecutive faults reach
+    /// `MAX_CONSECUTIVE_FAULTS`, the cartridge is automatically unloaded per RFC-0006 Section 7.
+    /// Returns true if the cartridge was evicted.
+    pub fn handle_tick_result(&mut self, cartridge_index: usize, result: TickResult) -> bool {
+        match result {
+            TickResult::Ok => {
+                self.fault_counts.insert(cartridge_index, 0);
+                false
+            }
+            TickResult::PluginFaulted => {
+                let count = self.fault_counts.entry(cartridge_index).or_insert(0);
+                *count += 1;
+                if *count >= Self::MAX_CONSECUTIVE_FAULTS {
+                    if cartridge_index < self.static_cartridges.len() {
+                        self.static_cartridges.remove(cartridge_index);
+                    }
+                    self.fault_counts.remove(&cartridge_index);
+                    true
+                } else {
+                    false
+                }
+            }
+        }
+    }
+
+    /// Replays RFC-0006 bounded draw commands with panic containment via `catch_unwind`.
+    pub fn replay_commands_safe(
+        &self,
+        header: &CommandBufferHeader,
+        commands: &[Command],
+        ui: &mut eframe::egui::Ui,
+    ) -> Result<usize, TickResult> {
+        if header.wire_version != 1 {
+            return Err(TickResult::PluginFaulted);
+        }
+
+        let max_commands = (header.command_count as usize).min(commands.len());
+        let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let mut replayed = 0;
+            for cmd in &commands[..max_commands] {
+                match cmd.op() {
+                    CommandOp::Label => {
+                        ui.label(cmd.text_as_str());
+                        replayed += 1;
+                    }
+                    CommandOp::Button => {
+                        let _ = ui.button(cmd.text_as_str());
+                        replayed += 1;
+                    }
+                    CommandOp::BeginHorizontal => {
+                        ui.horizontal(|_| ());
+                        replayed += 1;
+                    }
+                    CommandOp::BeginVertical => {
+                        ui.vertical(|_| ());
+                        replayed += 1;
+                    }
+                    CommandOp::End => {
+                        replayed += 1;
+                    }
+                    CommandOp::Spacing => {
+                        ui.add_space(cmd.x.max(0.0));
+                        replayed += 1;
+                    }
+                }
+            }
+            replayed
+        }));
+
+        res.map_err(|_| TickResult::PluginFaulted)
+    }
+
+    /// Replays RFC-0006 bounded draw commands against a host `egui::Ui` viewport.
+    pub fn replay_commands(
+        &self,
+        header: &CommandBufferHeader,
+        commands: &[Command],
+        ui: &mut eframe::egui::Ui,
+    ) -> usize {
+        self.replay_commands_safe(header, commands, ui).unwrap_or(0)
     }
 }
 
@@ -80,6 +234,51 @@ mod tests {
         fn render(&mut self, _ui: &mut egui::Ui) {
             self.render_calls += 1;
         }
+    }
+
+    #[test]
+    fn command_buffer_header_geometry_is_16_bytes() {
+        assert_eq!(std::mem::size_of::<CommandBufferHeader>(), 16);
+    }
+
+    #[test]
+    fn command_geometry_is_fixed_and_aligned() {
+        assert_eq!(std::mem::size_of::<Command>(), 96);
+    }
+
+    #[test]
+    fn unknown_command_op_defaults_to_label_without_panic() {
+        let cmd = Command {
+            op: 999,
+            _pad0: 0,
+            widget_id: 42,
+            text: [0u8; 64],
+            text_len: 0,
+            _pad1: 0,
+            x: 0.0,
+            y: 0.0,
+            color_rgba: [0, 0, 0, 255],
+        };
+        assert_eq!(cmd.op(), CommandOp::Label);
+        assert_eq!(cmd.text_as_str(), "");
+    }
+
+    #[test]
+    fn text_bounds_are_clamped_safely() {
+        let mut text = [0u8; 64];
+        text[..5].copy_from_slice(b"hello");
+        let cmd = Command {
+            op: 0,
+            _pad0: 0,
+            widget_id: 1,
+            text,
+            text_len: 128, // Invalid overflow length
+            _pad1: 0,
+            x: 0.0,
+            y: 0.0,
+            color_rgba: [255, 255, 255, 255],
+        };
+        assert_eq!(cmd.text_as_str(), "hello");
     }
 
     #[test]
@@ -121,5 +320,47 @@ mod tests {
         assert_eq!(manager.static_cartridges.len(), 2);
         assert_eq!(manager.static_cartridges[0].name(), "first");
         assert_eq!(manager.static_cartridges[1].name(), "second");
+    }
+
+    #[test]
+    fn handle_tick_result_evicts_after_max_faults() {
+        let mut manager = PluginManager::new();
+        manager.load_cartridge(Box::new(MockCartridge {
+            name: "faulty".to_string(),
+            render_calls: 0,
+        }));
+        assert_eq!(manager.static_cartridges.len(), 1);
+
+        // Fault 1
+        assert!(!manager.handle_tick_result(0, TickResult::PluginFaulted));
+        assert_eq!(manager.static_cartridges.len(), 1);
+
+        // Fault 2
+        assert!(!manager.handle_tick_result(0, TickResult::PluginFaulted));
+        assert_eq!(manager.static_cartridges.len(), 1);
+
+        // Fault 3 -> evicted!
+        assert!(manager.handle_tick_result(0, TickResult::PluginFaulted));
+        assert_eq!(manager.static_cartridges.len(), 0);
+    }
+
+    #[test]
+    fn handle_tick_result_success_resets_fault_count() {
+        let mut manager = PluginManager::new();
+        manager.load_cartridge(Box::new(MockCartridge {
+            name: "recovering".to_string(),
+            render_calls: 0,
+        }));
+
+        // Fault 1 and 2
+        assert!(!manager.handle_tick_result(0, TickResult::PluginFaulted));
+        assert!(!manager.handle_tick_result(0, TickResult::PluginFaulted));
+
+        // Success resets counter
+        assert!(!manager.handle_tick_result(0, TickResult::Ok));
+
+        // Next fault starts from 1 again, not 3
+        assert!(!manager.handle_tick_result(0, TickResult::PluginFaulted));
+        assert_eq!(manager.static_cartridges.len(), 1);
     }
 }

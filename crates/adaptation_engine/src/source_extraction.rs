@@ -4,7 +4,8 @@
 //! The engine is intentionally generic: callers can specify which file extensions to treat as source, and which AST extraction strategy to use.
 
 use anyhow::{Context, Result};
-use ast_auditor::inspect;
+use cratify_core::inspect;
+use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
@@ -37,7 +38,13 @@ impl Default for SourceExtractionConfig {
 }
 
 /// Minimal representation of a generated crate.
-#[derive(Debug, Clone)]
+///
+/// Derives `Serialize`/`Deserialize` (M49) so a harvested `Vec<CrateSpec>` can
+/// be exported as JSON via `cratify harvest --output <path>` and consumed as
+/// an explicit file-contract input by external tooling (mirroring the M40/M47
+/// pattern). `PathBuf` serializes via serde's std impls with no extra work
+/// needed here.
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CrateSpec {
     pub name: String,
     pub source_path: PathBuf,
@@ -46,7 +53,7 @@ pub struct CrateSpec {
 }
 
 /// Unified AST abstraction used by extraction results.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CodeInfo {
     pub functions: Vec<inspect::FunctionInfo>,
     pub structs: Vec<inspect::StructInfo>,

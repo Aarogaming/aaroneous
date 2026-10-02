@@ -1,7 +1,7 @@
 use crate::agents::SpecialistAgent;
 use crate::control::ControlPlane;
 use crate::mdps_router::{RoutableTask, RoutingDecision, TaskRoutingEngine};
-use biology::SystemBiology;
+use governance::system_limits::SystemHealthGovernor;
 use nervous_system::SharedMemorySynapse;
 use std::collections::HashMap;
 use tokio::sync::RwLock;
@@ -10,7 +10,7 @@ use tokio::sync::RwLock;
 /// Manages the runtime execution of agents, task dispatch, and lifecycle.
 pub struct HiveRuntime {
     pub synapse: SharedMemorySynapse,
-    pub biology: SystemBiology,
+    pub resources: SystemHealthGovernor,
     pub agents: RwLock<HashMap<String, SpecialistAgent>>,
     pub control_plane: ControlPlane,
     pub router: RwLock<TaskRoutingEngine>,
@@ -63,7 +63,7 @@ impl HiveRuntime {
         };
         Ok(Self {
             synapse,
-            biology: SystemBiology::new(),
+            resources: SystemHealthGovernor::new(),
             agents: RwLock::new(HashMap::new()),
             control_plane: ControlPlane::new(),
             router: RwLock::new(TaskRoutingEngine::new(Vec::new())),

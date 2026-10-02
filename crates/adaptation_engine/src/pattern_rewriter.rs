@@ -187,7 +187,7 @@ impl PatternRewriter {
         }
 
         // Sum energy costs for thermodynamic verification
-        graph.thermodynamic_free_energy = graph.extract_energy_vector().iter().sum();
+        graph.accumulated_energy_cost = graph.extract_energy_vector().iter().sum();
         graph
     }
 

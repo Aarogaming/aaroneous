@@ -149,38 +149,38 @@ impl UniversalMetricsExporter {
         }
     }
 
-    /// Directly ingests state from `homeostasis::DynamicEquilibriumState` into standard metrics
-    pub fn observe_homeostasis(
+    /// Directly ingests state from `resource_governor::DynamicEquilibriumState` into standard metrics
+    pub fn observe_resource_state(
         &self,
-        state: &crate::homeostasis::DynamicEquilibriumState,
+        state: &crate::resource_governor::DynamicEquilibriumState,
         timestamp_us: u64,
     ) {
         self.observe(
-            "homeostasis.energy_reserve",
-            state.global_energy_reserve as f64,
+            "resource.energy_reserve",
+            state.global_token_reserve as f64,
             "tokens",
             timestamp_us,
         );
         self.observe(
-            "homeostasis.cognitive_load",
-            state.active_cognitive_load as f64,
+            "resource.cognitive_load",
+            state.active_compute_load as f64,
             "load",
             timestamp_us,
         );
         self.observe(
-            "homeostasis.memory_pressure_mb",
+            "resource.memory_pressure_mb",
             state.memory_pressure_mb as f64,
             "MB",
             timestamp_us,
         );
         self.observe(
-            "homeostasis.throttle_factor",
+            "resource.throttle_factor",
             state.throttle_factor as f64,
             "factor",
             timestamp_us,
         );
         self.observe(
-            "homeostasis.degradation_tier",
+            "resource.degradation_tier",
             state.degradation_tier as u8 as f64,
             "tier",
             timestamp_us,
@@ -297,7 +297,7 @@ mod tests {
         let mut exporter = UniversalMetricsExporter::new();
         exporter.register_sink(sink);
 
-        exporter.observe("thermodynamic_free_energy", 0.014, "dimensionless", 5000);
+        exporter.observe("accumulated_energy_cost", 0.014, "dimensionless", 5000);
         exporter.observe_with_labels(
             "cycle_latency_us",
             16.0,
@@ -308,7 +308,7 @@ mod tests {
 
         let snap = sink_ref.snapshot();
         assert_eq!(snap.len(), 2);
-        assert_eq!(snap[0].metric_name, "thermodynamic_free_energy");
+        assert_eq!(snap[0].metric_name, "accumulated_energy_cost");
 
         let summary =
             UniversalMetricsExporter::summarize_metric(&snap, "cycle_latency_us").unwrap();
@@ -316,11 +316,11 @@ mod tests {
         assert_eq!(summary.mean, 16.0);
 
         let prom = UniversalMetricsExporter::format_prometheus(&snap);
-        assert!(prom.contains("thermodynamic_free_energy 0.014"));
+        assert!(prom.contains("accumulated_energy_cost 0.014"));
         assert!(prom.contains("cycle_latency_us{subsystem=\"jit\"} 16"));
 
         let otlp = UniversalMetricsExporter::format_otlp_json(&snap);
-        assert!(otlp.contains("thermodynamic_free_energy"));
+        assert!(otlp.contains("accumulated_energy_cost"));
         assert!(otlp.contains("resourceMetrics"));
     }
 
@@ -347,24 +347,24 @@ mod tests {
     }
 
     #[test]
-    fn test_observe_homeostasis() {
+    fn test_observe_resource_state() {
         let sink = Box::new(InMemoryMetricsSink::new(10));
         let mut exporter = UniversalMetricsExporter::new();
         let sink_ref = sink.clone();
         exporter.register_sink(sink);
 
-        let regulator = crate::homeostasis::FeedbackRegulator::default();
-        exporter.observe_homeostasis(regulator.state(), 1000);
+        let regulator = crate::resource_governor::FeedbackRegulator::default();
+        exporter.observe_resource_state(regulator.state(), 1000);
 
         let snap = sink_ref.snapshot();
         assert_eq!(snap.len(), 5);
         assert!(
             snap.iter()
-                .any(|o| o.metric_name == "homeostasis.energy_reserve")
+                .any(|o| o.metric_name == "resource.energy_reserve")
         );
         assert!(
             snap.iter()
-                .any(|o| o.metric_name == "homeostasis.throttle_factor")
+                .any(|o| o.metric_name == "resource.throttle_factor")
         );
     }
 }
