@@ -9,13 +9,15 @@ use std::time::Duration;
 
 fn main() {
     let mut crash_count = 0;
-    
+
     loop {
         // We use the same executable directory to find the aaroneous UI
         let exe_path = std::env::current_exe().unwrap_or_default();
-        let exe_dir = exe_path.parent().expect("Failed to find executable directory");
+        let exe_dir = exe_path
+            .parent()
+            .expect("Failed to find executable directory");
         let target = exe_dir.join("aaroneous.exe");
-        
+
         // Fallback to "cargo run --bin aaroneous" if running in dev mode
         let mut command = if target.exists() {
             Command::new(&target)
@@ -42,7 +44,7 @@ fn main() {
             crash_count += 1;
             // Sleep briefly to prevent tight infinite crash loops
             thread::sleep(Duration::from_millis(1000));
-            
+
             if crash_count > 10 {
                 // If it crashes 10 times, give up to prevent burning CPU
                 break;
