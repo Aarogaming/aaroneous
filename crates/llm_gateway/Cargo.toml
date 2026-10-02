@@ -8,7 +8,7 @@ license.workspace = true
 repository.workspace = true
 
 [dependencies]
-dirs = "5.0"
+dirs = "7.0"
 
 # Workspace crates
 ipc_bus = { path = "../ipc_bus" }
