@@ -23,7 +23,7 @@ name = "aaroneous-uninstall"
 path = "src/bin/uninstaller_gui.rs"
 
 [dependencies]
-dirs = "5.0"
+dirs = "7.0"
 
 # Workspace crates
 api = { path = "../api" }

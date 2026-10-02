@@ -51,7 +51,7 @@ si_ir = { path = "../../crates/si_ir" }
 anyhow = "1.0"
 chrono = { version = "0.4", features = ["serde"] }
 clap = { version = "4.5", features = ["derive", "cargo"] }
-dirs = "5.0"
+dirs = "7.0"
 crossbeam-channel = "0.5"
 futures-core = "0.3"
 futures-util = "0.3"
