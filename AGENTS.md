@@ -53,9 +53,10 @@ Every crate in this repository is an independent, plug-and-play component block 
 
 ## 0.1 Local Agent Delegation & Model Bias
 
-- **Default Agent Bias**: `qwen3.5:9b-q6` (Ollama at `http://localhost:11434`, model tag: `qwen3.5:9b-q6`).
-- **Autonomous Task Offloading**: When delegating code generation, method synthesis, refactoring, and test fixtures to local GPU models via `scripts/local_agent_delegate.ps1`, agents must default to `qwen3.5:9b-q6`.
-- **Reasoning Runaway Suppression**: When invoking `qwen3.5:9b-q6`, always provide a calibrated system prompt (e.g. `"You are a senior Rust systems programmer. Do NOT output any lengthy thinking trace or reasoning. Output only pure, complete Rust code."`) with `-Temperature 0.0` and generous token headroom (`-NumPredict 4096+`).
+- **Default Agent Bias**: `Qwen/Qwen2.5-Coder-14B-Instruct-AWQ` served by a local vLLM OpenAI-compatible server at `http://localhost:8000/v1` (migrated off Ollama; see `.agents/skills/local-agent-delegate/SKILL.md` for the full protocol and rationale).
+- **Autonomous Task Offloading**: When delegating code generation, method synthesis, refactoring, and test fixtures to local GPU models via `scripts/local_agent_delegate.ps1`, agents must default to `Qwen/Qwen2.5-Coder-14B-Instruct-AWQ`.
+- **Modular Task Decomposition**: For multi-struct or multi-phase generation jobs, use the script's `-Decompose` mode (`-PromptFiles`/`-OutputFiles`) rather than one large prompt — it dispatches each phase in order and carries prior phases' generated code forward as context for the next. See skill section 4.
+- **Reasoning Runaway Suppression**: When invoking the local model, always provide a calibrated system prompt (e.g. `"You are a senior Rust systems programmer. Do NOT output any lengthy thinking trace or reasoning. Output only pure, complete Rust code."`) with `-Temperature 0.0` and generous token headroom (`-MaxTokens 4096+`).
 
 ---
 
