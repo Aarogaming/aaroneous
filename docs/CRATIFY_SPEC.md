@@ -79,7 +79,7 @@ part into its own `kernel` crate rather than mixing profiles.
 | Profile | Crates |
 |---|---|
 | `kernel` | `core/hypervisor`, `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `core-contracts`, `dev/emulator_harness`, `scan_core`, `chaos_injector`, `rfc0006_host`, `rfc0006_abi` |
-| `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `paths`, `sdk/rust`, `local_inference` |
+| `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `paths`, `sdk/rust`, `local_inference`, `coordinator`, `core/host`, `cratify_core`, `paths_core` |
 | `presentation` | `api`, `studio_hud`, `scratchpad` |
 | `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benchmarks`, `runtime_monitor_bench` |
 
