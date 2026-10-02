@@ -2,16 +2,27 @@
 
 use emulator_harness::{ReductionBudget, TraceEvent, reduce_trace_bounded};
 use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 struct FuzzCountingAllocator;
 
 static ALLOC_COUNT: AtomicUsize = AtomicUsize::new(0);
 
+thread_local! {
+    // Scopes the counter to the test's own thread, so allocations made by
+    // unrelated threads the process may start (e.g. the test harness's own
+    // worker/timeout machinery) can't be mistaken for allocations made by
+    // the hot-path reducer this test is actually measuring.
+    static COUNTING_ACTIVE: Cell<bool> = const { Cell::new(false) };
+}
+
 // SAFETY: FuzzCountingAllocator delegates directly to System allocator without modifying pointers or layout.
 unsafe impl GlobalAlloc for FuzzCountingAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        ALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
+        if COUNTING_ACTIVE.with(Cell::get) {
+            ALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
+        }
         // SAFETY: Delegating allocation directly to System allocator.
         unsafe { System.alloc(layout) }
     }
@@ -35,6 +46,7 @@ fn next_u64(state: &mut u64) -> u64 {
 
 #[test]
 fn test_50k_randomized_traces_zero_heap_allocation() {
+    COUNTING_ACTIVE.with(|active| active.set(true));
     let initial_count = ALLOC_COUNT.load(Ordering::SeqCst);
     let mut state: u64 = 0xDEAD_BEEF_CAFE_BABEu64;
     let target_addr: u64 = 0x4000;
@@ -71,6 +83,7 @@ fn test_50k_randomized_traces_zero_heap_allocation() {
     }
 
     let final_count = ALLOC_COUNT.load(Ordering::SeqCst);
+    COUNTING_ACTIVE.with(|active| active.set(false));
     assert_eq!(
         initial_count,
         final_count,
