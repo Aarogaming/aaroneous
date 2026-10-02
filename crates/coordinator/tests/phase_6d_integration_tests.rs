@@ -271,8 +271,10 @@ fn test_phase_era_validation_on_init() {
     )));
 
     let mut test_reg = IntegrationMockRegistry::new(RegistryType::Unified);
-    let mut wrong_ctx = WorkspaceContext::default();
-    wrong_ctx.current_era = PhaseEra::FourD;
+    let wrong_ctx = WorkspaceContext {
+        current_era: PhaseEra::FourD,
+        ..Default::default()
+    };
 
     let init_result = test_reg.initialize(&wrong_ctx);
     assert!(init_result.is_err());

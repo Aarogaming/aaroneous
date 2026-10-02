@@ -54,7 +54,7 @@ mod tests {
 
     #[test]
     fn test_timeouts_configured() {
-        assert!(ELECTION_TIMEOUT_MIN_MS < ELECTION_TIMEOUT_MAX_MS);
-        assert!(HEARTBEAT_INTERVAL_MS < ELECTION_TIMEOUT_MIN_MS);
+        const { assert!(ELECTION_TIMEOUT_MIN_MS < ELECTION_TIMEOUT_MAX_MS) };
+        const { assert!(HEARTBEAT_INTERVAL_MS < ELECTION_TIMEOUT_MIN_MS) };
     }
 }

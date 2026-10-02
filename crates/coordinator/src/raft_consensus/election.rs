@@ -205,7 +205,7 @@ mod tests {
     #[test]
     fn test_random_election_timeout_range() {
         let timeout = random_election_timeout(150, 300);
-        assert!(timeout >= 150 && timeout <= 300);
+        assert!((150..=300).contains(&timeout));
     }
 
     #[test]

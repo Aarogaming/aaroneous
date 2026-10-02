@@ -1,10 +1,10 @@
-/// Integration tests for Raft consensus
-///
-/// Tests realistic multi-node scenarios including:
-/// - Multi-node election
-/// - Leader failure and recovery
-/// - Log divergence and conflict resolution
-/// - Snapshot-based recovery
+//! Integration tests for Raft consensus
+//!
+//! Tests realistic multi-node scenarios including:
+//! - Multi-node election
+//! - Leader failure and recovery
+//! - Log divergence and conflict resolution
+//! - Snapshot-based recovery
 
 #[cfg(test)]
 mod tests {

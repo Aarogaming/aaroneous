@@ -330,7 +330,7 @@ mod tests {
 
     #[test]
     fn test_mutation_state_enum() {
-        let states = vec![
+        let states = [
             MutationState::Pending,
             MutationState::Committed,
             MutationState::Applied,
