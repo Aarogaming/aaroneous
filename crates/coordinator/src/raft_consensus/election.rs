@@ -4,6 +4,7 @@ use super::node::RaftNode;
 /// Handles term advancement, election timeout, and distributed voting
 use super::types::*;
 use rand::Rng;
+use rand::RngExt;
 use std::time::{Duration, Instant};
 
 /// Election timeout tracker
@@ -34,8 +35,8 @@ impl ElectionTimeout {
 
 /// Randomized election timeout (between min and max)
 pub fn random_election_timeout(min_ms: u64, max_ms: u64) -> u64 {
-    let mut rng = rand::thread_rng();
-    rng.gen_range(min_ms..=max_ms)
+    let mut rng = rand::rng();
+    rng.random_range(min_ms..=max_ms)
 }
 
 impl ElectionTimeout {

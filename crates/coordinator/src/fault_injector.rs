@@ -2,6 +2,7 @@ use ipc_bus::SharedMemorySynapse;
 use ipc_bus::shared_memory::IpcBusState;
 use parking_lot::RwLock;
 use rand::Rng;
+use rand::RngExt;
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -20,10 +21,10 @@ impl FaultInjector {
     pub fn start(self) {
         println!("[FaultInjector] Initialized.");
         thread::spawn(move || {
-            let mut rng = rand::thread_rng();
+            let mut rng = rand::rng();
             loop {
                 // Randomly disrupt every 30-60 seconds
-                let sleep_secs = rng.gen_range(30..60);
+                let sleep_secs = rng.random_range(30..60);
                 thread::sleep(Duration::from_secs(sleep_secs));
 
                 let syn = self.synapse.read();
@@ -31,7 +32,7 @@ impl FaultInjector {
                 let state_ptr = syn.get_ptr() as *mut IpcBusState;
                 let state = unsafe { &mut *state_ptr };
 
-                match rng.gen_range(0..3) {
+                match rng.random_range(0..3) {
                     0 => {
                         println!("[FaultInjector] Injecting high memory pressure...");
                         state.memory_pressure = 95;
