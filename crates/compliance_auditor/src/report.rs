@@ -13,7 +13,7 @@ pub struct ComplianceReport {
     pub base_sha: String,
     pub head_sha: String,
     pub files_reviewed: Vec<String>,
-    /// Structural invariant violations from `ast_auditor::run_workspace_audit`
+    /// Structural invariant violations from `cratify_core::run_workspace_audit`
     /// over the changed files, kept separate from the LLM-derived findings
     /// since they come from a deterministic checker, not a verified opinion.
     pub structural_errors: Vec<String>,
@@ -35,7 +35,7 @@ impl ComplianceReport {
             return Vec::new();
         }
 
-        match ast_auditor::run_workspace_audit(existing) {
+        match cratify_core::run_workspace_audit(existing) {
             Ok(()) => Vec::new(),
             Err(_) => vec![
                 "ast_auditor reported one or more architectural invariant violations; \

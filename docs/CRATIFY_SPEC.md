@@ -79,13 +79,15 @@ part into its own `kernel` crate rather than mixing profiles.
 | Profile | Crates |
 |---|---|
 | `kernel` | `core/hypervisor`, `ipc_bus`, `compute`, `wire`, `si_format`, `si_ir`, `platform_bridge`, `runtime_monitor`, `core-contracts`, `dev/emulator_harness`, `scan_core`, `chaos_injector`, `rfc0006_host`, `rfc0006_abi` |
-| `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `paths`, `sdk/rust`, `local_inference` |
+| `control` | `orchestrator`, `orchestration_plane`, `llm_gateway`, `llm_gateway_types`, `governance`, `capabilities`, `adaptation_engine`, `adaptation_plane`, `mcp_server`, `transpiler`, `omni`, `paths`, `sdk/rust`, `local_inference`, `coordinator`, `core/host`, `cratify_core`, `paths_core` |
 | `presentation` | `api`, `studio_hud`, `scratchpad` |
 | `tooling` | `ast_auditor`, `cratify`, `compliance_auditor`, `xtask`, `benchmarks`, `runtime_monitor_bench` |
 
-`core/hypervisor` has two roles. Its library (`src/`) is `kernel`. Its binaries (`bin/`) are the
-workspace **composition root**: they wire every component together and are the one place allowed to
-depend on crates of any profile or ring.
+`core/hypervisor`'s library (`src/`) is `kernel`. The workspace **composition root** — the one place
+allowed to depend on crates of any profile or ring — is `core/host`'s binaries: the hive_mind/host
+crate split (PR #72) moved what used to be `core/hypervisor/bin/*` into `core/host/src/bin/*`,
+alongside the `coordinator` crate (`control` profile) that took the orchestration/federation/
+learning logic the composition root wires together.
 
 ### 2.3 Profile Dependency Direction
 
@@ -99,13 +101,13 @@ only be removed, never added to. Known violations, measured from `cargo metadata
 build dependencies) on 2026-09-24 and recorded as the ratchet baseline (14 edges; was 16 before
 `hotload`/`plugin_api` were removed from the `control` row below on 2026-09-25 — see that row's
 note; the baseline file was regenerated on 2026-09-28 when this enforcement was rebased onto that
-change):
+change; regenerated again when the hive_mind/host crate split landed, dropping to 6 edges — see
+that row's note):
 
 | Violation | Edges | Resolution |
 |---|---|---|
 | `kernel` -> `paths` (`control`) | `ipc_bus`, `compute`, `hypervisor` -> `paths` | Split `paths` into a `kernel`-safe path-value crate and a bootstrap discovery layer called only from entrypoints. |
-| `hypervisor` library (`kernel`) -> `control` | `hypervisor` -> `adaptation_engine`, `adaptation_plane`, `governance`, `llm_gateway`, `omni`, `orchestrator`, `transpiler`, `capabilities` | Hypervisor decomposition (M75): move composition logic out of the library into the binaries or a dedicated composition crate, so the library keeps only `kernel` concerns. The composition-root exemption covers `bin/` only, and Cargo declares dependencies per package, so it does not cover these: the library sources use all of them except `capabilities`, which appears declared but unused. (`hotload` and `plugin_api` were removed from this row on 2026-09-25: they were the source of a fixed unauthenticated dynamic-DLL-loading vulnerability on `main` (#34); this branch had restored them as unreachable dead dependencies during a merge, and removed them again on discovering why `main` had dropped them — see the security review this same date for the full trace.) |
-| `kernel` / `control` -> `ast_auditor` (`tooling`) | `hypervisor`, `capabilities`, `adaptation_engine` -> `ast_auditor` | Extract the analysis API these crates call (`inspect`, `run_pattern_review`) into a `control`-profile crate that `ast_auditor` also depends on, leaving the CLI and gate rules in `tooling`. |
+| `hypervisor` library (`kernel`) -> `control` | `hypervisor` -> `governance`, `omni`, `orchestrator` | The hive_mind/host crate split moved the `adaptation_engine`/`adaptation_plane`/`capabilities`/`llm_gateway`/`transpiler` edges out: that logic now lives in `coordinator` (`control`) and `core/host` (the composition root, exempt), which depend on them directly instead of routing through the `hypervisor` library. The remaining three back the `sabs`/`constellation`/`genetics`/`digestion`/`agents`/`control`/`hive`/`intelligence` re-export modules still in the library; decomposing those the same way is the remaining work. |
 
 The count may only decrease. A new edge in any of these directions now fails `cargo xtask check-deps`
 directly, not just by review convention.

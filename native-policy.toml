@@ -77,20 +77,20 @@ owning_adapter = ["hypervisor", "studio_hud"]
 [[allowed]]
 name = "aws-lc-rs"
 version = "1.18.1"
-justification = "Default cryptographic provider selected by rustls when reqwest's `rustls` TLS feature is enabled; reqwest is a direct dependency of hypervisor, orchestrator, and llm_gateway for outbound HTTP (LLM provider calls, telemetry, updates)."
-owning_adapter = ["hypervisor", "orchestrator", "llm_gateway"]
+justification = "Default cryptographic provider selected by rustls when reqwest's `rustls` TLS feature is enabled; reqwest is a direct dependency of hypervisor, orchestrator, llm_gateway, and coordinator for outbound HTTP (LLM provider calls, telemetry, updates)."
+owning_adapter = ["hypervisor", "orchestrator", "llm_gateway", "coordinator"]
 
 [[allowed]]
 name = "aws-lc-sys"
 version = "0.45.0"
 justification = "Native AWS-LC implementation backing aws-lc-rs; same reqwest/rustls TLS boundary as aws-lc-rs above."
-owning_adapter = ["hypervisor", "orchestrator", "llm_gateway"]
+owning_adapter = ["hypervisor", "orchestrator", "llm_gateway", "coordinator"]
 
 [[allowed]]
 name = "cmake"
 version = "0.1.58"
 justification = "Build-time CMake invocation used by aws-lc-sys's build script; not a direct dependency of any workspace crate, reached only through the reqwest/rustls/aws-lc TLS boundary above."
-owning_adapter = ["hypervisor", "orchestrator", "llm_gateway"]
+owning_adapter = ["hypervisor", "orchestrator", "llm_gateway", "coordinator"]
 
 [[allowed]]
 name = "defmt"
@@ -125,8 +125,8 @@ owning_adapter = ["hypervisor"]
 [[allowed]]
 name = "libsqlite3-sys"
 version = "0.38.2"
-justification = "Bundled SQLite backing hypervisor's direct `rusqlite` dependency (feature `bundled`). Needs a future storage_adapter isolation boundary; today it is a direct hypervisor dependency."
-owning_adapter = ["hypervisor"]
+justification = "Bundled SQLite backing hypervisor's and coordinator's direct `rusqlite` dependency (feature `bundled`). Needs a future storage_adapter isolation boundary; today it is a direct dependency of both."
+owning_adapter = ["hypervisor", "coordinator"]
 
 [[allowed]]
 name = "onig_sys"
@@ -154,15 +154,15 @@ owning_adapter = ["adaptation_engine"]
 
 [[allowed]]
 name = "rfc0006_host"
-version = "0.1.0"
+version = "0.4.0+vb.1c7xsuljasq29bw4o49kxhqm"
 justification = "P1: development host for the RFC-0006 dynamic plugin ABI proof-of-concept; directly uses `libloading` to load plugin binaries at runtime. Development-only, not part of the shipped product; re-review before any production use."
 owning_adapter = ["rfc0006_host"]
 
 [[allowed]]
 name = "ring"
 version = "0.17.14"
-justification = "ECDSA P-256 signing and verification for ast_auditor's `certify` module, which signs and verifies audit pattern-conformance certificates."
-owning_adapter = ["ast_auditor"]
+justification = "ECDSA P-256 signing and verification for the `certify` module (now in cratify_core, the shared audit engine `ast_auditor` is a compat facade over), which signs and verifies audit pattern-conformance certificates."
+owning_adapter = ["ast_auditor", "cratify_core"]
 
 [[allowed]]
 name = "sdk"
@@ -179,8 +179,8 @@ owning_adapter = ["hypervisor", "studio_hud", "api", "scratchpad"]
 [[allowed]]
 name = "zstd-sys"
 version = "2.1.0+zstd.1.5.7"
-justification = "Zstandard compression backing hypervisor's direct `zstd` dependency, used for archive/snapshot compression."
-owning_adapter = ["hypervisor"]
+justification = "Zstandard compression backing hypervisor's and coordinator's direct `zstd` dependency, used for archive/snapshot compression."
+owning_adapter = ["hypervisor", "coordinator"]
 
 # ---------------------------------------------------------------------------
 # Linux-only entries: the windowing backend eframe/glutin select on Linux

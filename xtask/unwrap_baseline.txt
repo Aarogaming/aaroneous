@@ -10,19 +10,22 @@
 # This list may only shrink or stay flat: the gate fails if a package's
 # current count exceeds the number recorded here. When you fix unwraps,
 # lower the number - do not leave it stale.
-adaptation_engine 11
+adaptation_engine 10
 adaptation_plane 4
 api 0
-ast_auditor 1
+ast_auditor 0
 capabilities 0
 chaos_injector 1
 compliance_auditor 0
 compute 8
+coordinator 57
 core-contracts 0
 cratify 0
+cratify_core 1
 emulator_harness 0
 governance 0
-hypervisor 114
+host 0
+hypervisor 52
 ipc_bus 12
 llm_gateway 3
 llm_gateway_types 0
@@ -32,6 +35,7 @@ omni 1
 orchestration_plane 0
 orchestrator 1
 paths 0
+paths_core 0
 platform_bridge 5
 rfc0006_abi 4
 rfc0006_host 0

@@ -9,6 +9,7 @@ mod install;
 mod native_audit;
 mod package;
 mod uninstall;
+pub mod vbranch;
 mod workspace_metadata;
 
 use anyhow::{Result, bail};
@@ -26,6 +27,7 @@ fn main() -> Result<()> {
         "install" => install::run(&args[2..]),
         "uninstall" => uninstall::run(),
         "package" => package::run(&args[2..]),
+        "vbranch" => vbranch::run(&args[2..]),
         "export-wit" => {
             let config = export_wit::WitExportConfig::default();
             export_wit::export_wit(&config).map_err(|e| anyhow::anyhow!(e))
