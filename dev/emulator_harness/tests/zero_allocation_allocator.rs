@@ -3,6 +3,7 @@
 
 use emulator_harness::{ReductionBudget, TraceEvent, extract_state_delta, reduce_trace_bounded};
 use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 struct CountingAllocator;
@@ -10,9 +11,19 @@ struct CountingAllocator;
 static ALLOC_COUNT: AtomicUsize = AtomicUsize::new(0);
 static DEALLOC_COUNT: AtomicUsize = AtomicUsize::new(0);
 
+thread_local! {
+    // Scopes the counters to the test's own thread, so allocations made by
+    // unrelated threads the process may start (e.g. the test harness's own
+    // worker/timeout machinery) can't be mistaken for allocations made by
+    // the hot-path reducer this test is actually measuring.
+    static COUNTING_ACTIVE: Cell<bool> = const { Cell::new(false) };
+}
+
 unsafe impl GlobalAlloc for CountingAllocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        ALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
+        if COUNTING_ACTIVE.with(Cell::get) {
+            ALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
+        }
         // Pure pass-through to `System`'s own `alloc` with the exact same
         // `layout` this fn was called with; `GlobalAlloc::alloc`'s
         // precondition (non-zero-size, validly-constructed `Layout`) is
@@ -24,7 +35,9 @@ unsafe impl GlobalAlloc for CountingAllocator {
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
-        DEALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
+        if COUNTING_ACTIVE.with(Cell::get) {
+            DEALLOC_COUNT.fetch_add(1, Ordering::SeqCst);
+        }
         // Pure pass-through to `System`'s own `dealloc` with the exact
         // same `ptr`/`layout` this fn was called with; `GlobalAlloc::
         // dealloc`'s precondition (`ptr` was allocated by this allocator
@@ -74,6 +87,7 @@ fn test_bounded_reducer_zero_heap_allocation_measurement() {
     ];
 
     // Measure allocations across reduction execution
+    COUNTING_ACTIVE.with(|active| active.set(true));
     let allocs_before = ALLOC_COUNT.load(Ordering::SeqCst);
 
     let summary = reduce_trace_bounded(&trace, 0x4000, ReductionBudget::with_limit(100))
@@ -105,4 +119,6 @@ fn test_bounded_reducer_zero_heap_allocation_measurement() {
     );
     assert_eq!(delta.initial_val, 0);
     assert_eq!(delta.final_val, 99);
+
+    COUNTING_ACTIVE.with(|active| active.set(false));
 }

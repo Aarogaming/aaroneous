@@ -172,15 +172,9 @@ owning_adapter = ["sdk"]
 
 [[allowed]]
 name = "wgpu-hal"
-version = "29.0.4"
-justification = "WebGPU hardware abstraction layer backing hypervisor's and studio_hud's direct `wgpu 29.0` dependency for their native rendering surfaces."
-owning_adapter = ["hypervisor", "studio_hud"]
-
-[[allowed]]
-name = "wgpu-hal"
 version = "30.0.1"
-justification = "WebGPU hardware abstraction layer bundled inside eframe's own internal wgpu dependency (a newer major version than the workspace's direct wgpu 29.0 pin); reached via studio_hud's, api's, and scratchpad's direct `eframe` dependency."
-owning_adapter = ["studio_hud", "api", "scratchpad"]
+justification = "WebGPU hardware abstraction layer backing hypervisor's and studio_hud's direct `wgpu 30.0` dependency for their native rendering surfaces, and bundled inside eframe's own internal wgpu dependency reached via studio_hud's, api's, and scratchpad's direct `eframe` dependency."
+owning_adapter = ["hypervisor", "studio_hud", "api", "scratchpad"]
 
 [[allowed]]
 name = "zstd-sys"
