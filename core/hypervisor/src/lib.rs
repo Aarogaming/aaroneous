@@ -57,6 +57,7 @@ pub mod security_hardener;
 pub mod semantic_indexing;
 pub mod signal_bridge;
 pub mod spatial_delta_gate;
+#[cfg(windows)]
 pub mod spatial_kinetic_engine;
 pub mod specialist_memory;
 pub mod spectral_layout;
@@ -95,5 +96,5 @@ mod phase1_integration_tests;
 #[cfg(test)]
 mod phase2_integration_tests;
 
-#[cfg(test)]
+#[cfg(all(test, windows))]
 mod spatial_kinetic_test;

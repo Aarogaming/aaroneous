@@ -41,7 +41,7 @@ members = [
     "crates/local_inference",
     "crates/cratify_core",
     "crates/paths_core",
-    "crates/hive_mind",
+    "crates/coordinator",
     "core/host",
 ]
 
