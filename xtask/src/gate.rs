@@ -25,6 +25,56 @@ pub fn run() -> Result<()> {
     println!("=== 3.5. Native Dependency Boundary Audit ===");
     crate::native_audit::run().context("Gate 3.5 failed: Native Dependency Boundary")?;
 
+    println!("=== 3.6. Dependency & License Policy (cargo-deny) ===");
+    require_tool(
+        "cargo-deny",
+        "cargo install cargo-deny --locked",
+        "https://github.com/EmbarkStudios/cargo-deny",
+    )?;
+    run_cmd("cargo", &["deny", "--all-features", "check"])
+        .context("Gate 3.6 failed: Dependency & License Policy (cargo-deny)")?;
+
+    println!("=== 3.7. RUSTSEC Advisory Audit (cargo-audit) ===");
+    require_tool(
+        "cargo-audit",
+        "cargo install cargo-audit --locked",
+        "https://github.com/rustsec/rustsec",
+    )?;
+    run_cmd("cargo", &["audit"])
+        .context("Gate 3.7 failed: RUSTSEC Advisory Audit (cargo-audit)")?;
+
+    println!("=== 3.8. Semver Compatibility (core-contracts, sdk) ===");
+    require_tool(
+        "cargo-semver-checks",
+        "cargo install cargo-semver-checks --locked",
+        "https://github.com/obi1kenobi/cargo-semver-checks",
+    )?;
+    let baseline = semver_baseline_rev();
+    run_cmd(
+        "cargo",
+        &[
+            "semver-checks",
+            "check-release",
+            "-p",
+            "core-contracts",
+            "--baseline-rev",
+            &baseline,
+        ],
+    )
+    .context("Gate 3.8 failed: Semver Compatibility (core-contracts)")?;
+    run_cmd(
+        "cargo",
+        &[
+            "semver-checks",
+            "check-release",
+            "-p",
+            "sdk",
+            "--baseline-rev",
+            &baseline,
+        ],
+    )
+    .context("Gate 3.8 failed: Semver Compatibility (sdk)")?;
+
     println!("=== 4. Full Workspace Compilation ===");
     run_cmd("cargo", &["check", "--workspace", "--all-targets"])
         .context("Gate 4 failed: Full Workspace Compilation")?;
@@ -212,10 +262,61 @@ fn run_cmd(program: &str, args: &[&str]) -> Result<()> {
     Ok(())
 }
 
+/// Fails with install instructions if `binary` isn't on `PATH`, rather than
+/// silently skipping the gate or paying an unconditional multi-minute
+/// `cargo install` on every run. These three tools (cargo-deny, cargo-audit,
+/// cargo-semver-checks) are one-time local setup, same as clippy/rustfmt
+/// components are assumed present already.
+fn require_tool(binary: &str, install_cmd: &str, project_url: &str) -> Result<()> {
+    match Command::new(binary).arg("--version").status() {
+        Ok(_) => Ok(()),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {
+            bail!(
+                "`{binary}` is not installed or not on PATH. Install it once with:\n    {install_cmd}\nSee: {project_url}"
+            )
+        }
+        Err(e) => Err(e).with_context(|| format!("Failed to probe for `{binary}`")),
+    }
+}
+
+/// Baseline git revision for `cargo-semver-checks`, matching what
+/// `.github/workflows/semver-checks.yml` resolves on a pull-request event
+/// (diff against the PR's base branch). A local run assumes the standard
+/// `origin/main` remote/branch naming; fetch `main` first if this doesn't
+/// resolve.
+fn semver_baseline_rev() -> String {
+    "origin/main".to_string()
+}
+
 #[cfg(test)]
 mod tests {
+    use super::require_tool;
     use std::fs;
     use std::path::Path;
+
+    /// A binary that cannot plausibly exist on `PATH` must fail with
+    /// install instructions, not a generic spawn error — this is the error
+    /// path a contributor missing one of the three security/semver tools
+    /// actually hits.
+    #[test]
+    fn require_tool_reports_missing_binary_with_install_instructions() {
+        let err = require_tool(
+            "definitely-not-a-real-binary-xyz123",
+            "cargo install the-thing",
+            "https://example.invalid",
+        )
+        .expect_err("a nonexistent binary must fail require_tool");
+        let message = format!("{err:#}");
+        assert!(message.contains("cargo install the-thing"));
+        assert!(message.contains("https://example.invalid"));
+    }
+
+    /// A binary that does exist (here, `cargo` itself, always present under
+    /// the test harness) must pass through without error.
+    #[test]
+    fn require_tool_accepts_present_binary() {
+        require_tool("cargo", "unused", "unused").expect("cargo must be found on PATH");
+    }
 
     /// The `run: cargo ...` lines `.github/workflows/ci.yml`'s `check-and-test`
     /// job declares directly, outside its "Canonical repository verification"
@@ -293,6 +394,52 @@ mod tests {
                 "ci.yml runs `{cmd}` but no gate in xtask/src/gate.rs::run() covers it — \
                  a CI check was added or changed without a matching local gate. Add it to \
                  both gate::run() and GATE_COMMANDS."
+            );
+        }
+    }
+
+    /// `security-audit.yml` and `semver-checks.yml` run cargo-deny,
+    /// cargo-audit and cargo-semver-checks via dedicated GitHub Actions
+    /// (`EmbarkStudios/cargo-deny-action`, `rustsec/audit-check`,
+    /// `taiki-e/install-action@cargo-semver-checks` + `cargo semver-checks
+    /// check-release`), not a literal `run: cargo ...` line — so they can't
+    /// be checked by the `GATE_COMMANDS`/ci.yml machinery above. This test
+    /// is their equivalent drift guard: it fails if either workflow's
+    /// defining characteristics (the action used, or the exact arguments)
+    /// change without gates 3.6-3.8 in `run()` above being updated to match.
+    #[test]
+    fn security_and_semver_workflows_match_their_local_gates() {
+        let manifest_dir = env!("CARGO_MANIFEST_DIR");
+        let workflows = Path::new(manifest_dir)
+            .join("..")
+            .join(".github")
+            .join("workflows");
+
+        let security_audit = fs::read_to_string(workflows.join("security-audit.yml"))
+            .expect("failed to read security-audit.yml");
+        assert!(
+            security_audit.contains("EmbarkStudios/cargo-deny-action"),
+            "security-audit.yml no longer uses EmbarkStudios/cargo-deny-action — gate 3.6 \
+             (`cargo deny check`) in gate.rs::run() may no longer match what CI runs."
+        );
+        assert!(
+            security_audit.contains("--all-features"),
+            "security-audit.yml's cargo-deny arguments changed — update gate 3.6 in \
+             gate.rs::run() to pass the same arguments."
+        );
+        assert!(
+            security_audit.contains("rustsec/audit-check"),
+            "security-audit.yml no longer uses rustsec/audit-check — gate 3.7 (`cargo audit`) \
+             in gate.rs::run() may no longer match what CI runs."
+        );
+
+        let semver_checks = fs::read_to_string(workflows.join("semver-checks.yml"))
+            .expect("failed to read semver-checks.yml");
+        for pkg in ["-p core-contracts", "-p sdk"] {
+            assert!(
+                semver_checks.contains(pkg),
+                "semver-checks.yml no longer checks `{pkg}` — gate 3.8 in gate.rs::run() \
+                 checks a different set of crates than CI does."
             );
         }
     }

@@ -116,6 +116,17 @@ struct AllowedPackage {
 /// `justification` and `owning_adapter` fields, returning all violations at
 /// once (rather than failing on the first one) so a reviewer can fix every
 /// entry in one pass.
+/// Strips semver build metadata (everything from the first `+` onward) so
+/// policy-entry matching is immune to a workspace crate's `+vb.<hash>`
+/// vbranch lineage stamp changing on every `cargo xtask vbranch stamp` run.
+/// Per the semver spec, build metadata never affects precedence, so this is
+/// the correct comparison regardless of whether the package is a workspace
+/// member or a pinned third-party dependency — a real version bump (the part
+/// before `+`) still requires updating the policy entry, as it should.
+fn strip_build_metadata(version: &str) -> &str {
+    version.split('+').next().unwrap_or(version)
+}
+
 fn validate_entries(raw: Vec<RawAllowedPackage>) -> Result<Vec<AllowedPackage>> {
     let mut errors = Vec::new();
     let mut entries = Vec::new();
@@ -302,7 +313,7 @@ fn audit_target(
 
         let matching_entry = allowed.iter().find(|entry| {
             entry.name == pkg.name
-                && entry.version == pkg.version
+                && strip_build_metadata(&entry.version) == strip_build_metadata(&pkg.version)
                 && entry.target.as_deref().is_none_or(|t| t == target)
                 && entry.features.as_ref().is_none_or(|f| {
                     let mut expected = f.clone();
@@ -467,6 +478,25 @@ mod tests {
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].name, "ring");
         assert_eq!(entries[0].owning_adapter, vec!["ast_auditor"]);
+    }
+
+    /// A policy entry pinned to a workspace crate's old vbranch lineage stamp
+    /// must still match that crate's current build after an unrelated
+    /// version bump restamps the suffix — this is the exact failure that hit
+    /// `rfc0006_host` in native-policy.toml when `core-contracts`'s semver
+    /// bump regenerated every crate's `+vb.<hash>` tag. A real version bump
+    /// (the part before `+`) must still cause a mismatch.
+    #[test]
+    fn strip_build_metadata_ignores_vbranch_lineage_stamp_but_not_real_version_changes() {
+        assert_eq!(
+            strip_build_metadata("0.4.0+vb.13r032t5kq5mq27403b0vil3"),
+            strip_build_metadata("0.4.0+vb.1c7xsuljasq29bw4o49kxhqm"),
+        );
+        assert_ne!(
+            strip_build_metadata("0.3.2+vb.13r032t5kq5mq27403b0vil3"),
+            strip_build_metadata("0.4.0+vb.13r032t5kq5mq27403b0vil3"),
+        );
+        assert_eq!(strip_build_metadata("0.17.14"), "0.17.14");
     }
 
     /// Synthetic graph: `native-sys` <- `wrapper` <- `hypervisor` (workspace
