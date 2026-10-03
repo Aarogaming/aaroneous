@@ -21,6 +21,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      - name: Fetch main (cargo-semver-checks baseline)
+        # actions/checkout's default shallow, single-ref checkout doesn't
+        # leave `origin/main` resolvable, which gate 3.8 (inside "Canonical
+        # repository verification" below) needs as its --baseline-rev.
+        # Mirrors semver-checks.yml's own "Resolve baseline revision" step.
+        shell: bash
+        run: git fetch origin main --depth=1
+
       - name: Install Rust toolchain
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -86,6 +94,11 @@ jobs:
 
       - name: Profile dependency direction check
         run: cargo run -p xtask -- check-deps
+
+      - name: Install cargo-deny, cargo-audit, cargo-semver-checks
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny,cargo-audit,cargo-semver-checks
 
       - name: Canonical repository verification
         shell: bash
