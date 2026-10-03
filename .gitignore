@@ -115,3 +115,7 @@ review-*.log
 review-*.md
 *.diff
 
+# Local vbranch lineage log (`cargo xtask vbranch stamp`'s own generated
+# state, not source — see xtask/src/vbranch.rs)
+.vbranch/
+
