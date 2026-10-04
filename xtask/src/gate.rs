@@ -1,6 +1,16 @@
 use anyhow::{Context, Result, bail};
 use std::process::Command;
 
+/// Single source of truth for gate 3.6's cargo-deny invocation, read by both
+/// `run()` and its drift test. `--all-features` is the one of these three
+/// arguments that also names a `security-audit.yml` `arguments:` value
+/// directly; `deny`/`check` are the subcommand, not something the workflow
+/// spells out.
+const GATE_36_DENY_ARGS: &[&str] = &["deny", "--all-features", "check"];
+
+/// Gate 3.8's semver-checked package list — see `GATE_36_DENY_ARGS`.
+const GATE_38_SEMVER_PACKAGES: &[&str] = &["core-contracts", "sdk"];
+
 pub fn run() -> Result<()> {
     println!("=== 1. Text Encoding Contract ===");
     crate::encoding::run().context("Gate 1 failed: Text Encoding Contract")?;
@@ -31,7 +41,7 @@ pub fn run() -> Result<()> {
         "cargo install cargo-deny --locked",
         "https://github.com/EmbarkStudios/cargo-deny",
     )?;
-    run_cmd("cargo", &["deny", "--all-features", "check"])
+    run_cmd("cargo", GATE_36_DENY_ARGS)
         .context("Gate 3.6 failed: Dependency & License Policy (cargo-deny)")?;
 
     println!("=== 3.7. RUSTSEC Advisory Audit (cargo-audit) ===");
@@ -50,30 +60,20 @@ pub fn run() -> Result<()> {
         "https://github.com/obi1kenobi/cargo-semver-checks",
     )?;
     let baseline = semver_baseline_rev();
-    run_cmd(
-        "cargo",
-        &[
-            "semver-checks",
-            "check-release",
-            "-p",
-            "core-contracts",
-            "--baseline-rev",
-            &baseline,
-        ],
-    )
-    .context("Gate 3.8 failed: Semver Compatibility (core-contracts)")?;
-    run_cmd(
-        "cargo",
-        &[
-            "semver-checks",
-            "check-release",
-            "-p",
-            "sdk",
-            "--baseline-rev",
-            &baseline,
-        ],
-    )
-    .context("Gate 3.8 failed: Semver Compatibility (sdk)")?;
+    for pkg in GATE_38_SEMVER_PACKAGES {
+        run_cmd(
+            "cargo",
+            &[
+                "semver-checks",
+                "check-release",
+                "-p",
+                pkg,
+                "--baseline-rev",
+                &baseline,
+            ],
+        )
+        .with_context(|| format!("Gate 3.8 failed: Semver Compatibility ({pkg})"))?;
+    }
 
     println!("=== 4. Full Workspace Compilation ===");
     run_cmd("cargo", &["check", "--workspace", "--all-targets"])
@@ -290,7 +290,7 @@ fn semver_baseline_rev() -> String {
 
 #[cfg(test)]
 mod tests {
-    use super::require_tool;
+    use super::{GATE_36_DENY_ARGS, GATE_38_SEMVER_PACKAGES, require_tool};
     use std::fs;
     use std::path::Path;
 
@@ -403,12 +403,42 @@ mod tests {
     /// (`EmbarkStudios/cargo-deny-action`, `rustsec/audit-check`,
     /// `taiki-e/install-action@cargo-semver-checks` + `cargo semver-checks
     /// check-release`), not a literal `run: cargo ...` line — so they can't
-    /// be checked by the `GATE_COMMANDS`/ci.yml machinery above. This test
-    /// is their equivalent drift guard: it fails if either workflow's
-    /// defining characteristics (the action used, or the exact arguments)
-    /// change without gates 3.6-3.8 in `run()` above being updated to match.
+    /// be checked by the `GATE_COMMANDS`/ci.yml machinery above.
+    ///
+    /// This is their drift guard, and it checks both directions:
+    /// `assert_eq!` first pins `GATE_36_DENY_ARGS`/`GATE_38_SEMVER_PACKAGES`
+    /// to the exact values this test also checks the workflow files
+    /// against, so changing either constant in `run()` (e.g. dropping
+    /// `--all-features`, or removing `sdk` from the semver-checked package
+    /// list) fails this test immediately, forcing a deliberate update here
+    /// alongside confirming the workflow file still matches — rather than
+    /// deriving the workflow-file assertions from the constants directly
+    /// (e.g. `.filter(|a| a.starts_with("--"))`), which would vacuously
+    /// pass if the constant lost the flag entirely instead of catching it.
+    /// An earlier version of this test held its own separately hand-typed
+    /// literals with no link back to `run()`'s real arguments at all, which
+    /// caught the workflow changing out from under the gate but not the
+    /// reverse — a review caught this: see the exchange on
+    /// Aarogaming/aaroneous#89, 2026-10-03. The action names
+    /// (`EmbarkStudios/cargo-deny-action`, `rustsec/audit-check`) have no
+    /// equivalent in `run()` at all, since `run()` calls the CLIs directly
+    /// rather than through an Action, so those two stay literal checks of
+    /// the workflow's own identity.
     #[test]
     fn security_and_semver_workflows_match_their_local_gates() {
+        assert_eq!(
+            GATE_36_DENY_ARGS,
+            &["deny", "--all-features", "check"],
+            "GATE_36_DENY_ARGS changed in gate.rs::run() — update this test's expected value \
+             AND confirm security-audit.yml's cargo-deny-action arguments still match."
+        );
+        assert_eq!(
+            GATE_38_SEMVER_PACKAGES,
+            &["core-contracts", "sdk"],
+            "GATE_38_SEMVER_PACKAGES changed in gate.rs::run() — update this test's expected \
+             value AND confirm semver-checks.yml still checks the same package set."
+        );
+
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
         let workflows = Path::new(manifest_dir)
             .join("..")
@@ -424,8 +454,8 @@ mod tests {
         );
         assert!(
             security_audit.contains("--all-features"),
-            "security-audit.yml's cargo-deny arguments changed — update gate 3.6 in \
-             gate.rs::run() to pass the same arguments."
+            "security-audit.yml's cargo-deny arguments changed — update GATE_36_DENY_ARGS in \
+             gate.rs to pass the same arguments."
         );
         assert!(
             security_audit.contains("rustsec/audit-check"),
@@ -435,11 +465,12 @@ mod tests {
 
         let semver_checks = fs::read_to_string(workflows.join("semver-checks.yml"))
             .expect("failed to read semver-checks.yml");
-        for pkg in ["-p core-contracts", "-p sdk"] {
+        for pkg in GATE_38_SEMVER_PACKAGES {
+            let needle = format!("-p {pkg}");
             assert!(
-                semver_checks.contains(pkg),
-                "semver-checks.yml no longer checks `{pkg}` — gate 3.8 in gate.rs::run() \
-                 checks a different set of crates than CI does."
+                semver_checks.contains(&needle),
+                "semver-checks.yml no longer checks `{pkg}` — update GATE_38_SEMVER_PACKAGES \
+                 in gate.rs or this workflow so they match."
             );
         }
     }
