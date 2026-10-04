@@ -6,9 +6,12 @@
 //! Restored from the pre-split `core/hypervisor/src/phase_5_integration_tests.rs`
 //! (see git history at commit prior to `c3591719`). This suite only ever
 //! depended on the standalone `governance` crate (no `crate::`-relative
-//! imports into hypervisor internals), so it moves to `coordinator`, which
-//! is the crate that now depends on `governance`; `core/hypervisor` does
-//! not.
+//! imports into hypervisor internals), so it moves to `coordinator` along
+//! with the rest of the relocated suites — not because `core/hypervisor`
+//! stopped depending on `governance` (it still does, directly, via its own
+//! `Cargo.toml`), but because this particular suite never exercised
+//! anything hypervisor-internal in the first place, so `coordinator` is
+//! where it belongs regardless of that other edge.
 
 use governance::{SystemHealthGovernor, ThrottleState};
 
