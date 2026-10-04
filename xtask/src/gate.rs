@@ -424,6 +424,21 @@ mod tests {
     /// equivalent in `run()` at all, since `run()` calls the CLIs directly
     /// rather than through an Action, so those two stay literal checks of
     /// the workflow's own identity.
+    ///
+    /// **Known residual gaps, flagged in the same review** (deliberately
+    /// not closed here — closing them for real means parsing the workflow
+    /// YAML structurally instead of substring-matching its raw text, which
+    /// is more than this fix needs): this test does not cover
+    /// `semver_baseline_rev()`'s `--baseline-rev` value at all (CI's own
+    /// `semver-checks.yml` resolves its baseline differently per event —
+    /// PR base ref vs. pre-push commit — and nothing here checks that
+    /// `run()`'s hardcoded `"origin/main"` stays a reasonable local analog
+    /// of that), and a plain `.contains()` check is satisfied by a
+    /// commented-out line or an unrelated line that happens to contain the
+    /// same substring just as readily as a real, active one. Treat this
+    /// test as a guard against the four concrete markers it names drifting
+    /// silently, not as proof the local gate and these two CI workflows are
+    /// structurally equivalent.
     #[test]
     fn security_and_semver_workflows_match_their_local_gates() {
         assert_eq!(
