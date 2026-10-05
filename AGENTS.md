@@ -127,7 +127,7 @@ Full specification: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2, owner-appr
 
 ## 6. Sequential Verification Gate Protocol
 
-Agents must NEVER declare work complete based solely on `cargo check`. The single command below (or its shim) runs every gate below, in order, and is mechanically checked to cover the same commands `.github/workflows/ci.yml`'s `check-and-test` job runs (see `xtask/src/gate.rs`'s `tests` module) — running it locally gives the same assurance as a green CI run:
+Agents must NEVER declare work complete based solely on `cargo check`. The single command below (or its shim) runs every gate below, in order, and is mechanically checked to cover the same verification `.github/workflows/ci.yml`'s `check-and-test` job, `security-audit.yml`, and `semver-checks.yml` run between them (see `xtask/src/gate.rs`'s `tests` module) — running it locally covers all three workflows, not just `check-and-test`, **within the limits spelled out after gate 3.8 below** (it is not a structural proof of full equivalence; read that note before treating a local green run as interchangeable with a green CI run). (Before 2026-10-03, gates 3.6-3.8 below didn't exist and even that bounded claim was false for the two security/semver workflows specifically — a run could report every gate green and still fail CI on `cargo-deny`, `cargo-audit`, or `cargo-semver-checks`, which `cargo xtask gate` never invoked. See the coordination-system audit that found this. Don't let the claim drift out of sync with reality again — if you add a CI workflow, add its matching gate here too.)
 
 ```bash
 # Full Self-Verification Gate Script — runs gates 1-12 below
@@ -145,6 +145,16 @@ cargo clippy --workspace --all-targets -- -D warnings
 
 # 3.5. Native Dependency Boundary Audit (allowlisted native provenance, see native-policy.toml)
 cargo run -p xtask -- check-native
+
+# 3.6. Dependency & License Policy (advisories/bans/licenses/sources, see deny.toml)
+cargo deny --all-features check
+
+# 3.7. RUSTSEC Advisory Audit (documented exceptions in .cargo/audit.toml)
+cargo audit
+
+# 3.8. Semver Compatibility (core-contracts, sdk — breaking changes require a version bump)
+cargo semver-checks check-release -p core-contracts --baseline-rev origin/main
+cargo semver-checks check-release -p sdk --baseline-rev origin/main
 
 # 4. Full Workspace Compilation (all targets, tests, benches)
 cargo check --workspace --all-targets
@@ -195,7 +205,9 @@ cargo check -p hypervisor --all-targets --features llama-gguf,gpu-metrics,fleet,
 cargo check -p hypervisor --all-targets --features p2p-iroh
 ```
 
-> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3, 9, 9.5 and 10-12 mirror `ci.yml`'s directly-declared steps; gates 3.5 and 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step). If you add a new CI check, add the matching gate in `xtask/src/gate.rs` and its command string to `GATE_COMMANDS` in the same file — a test fails otherwise the next time either drifts from the other.
+> **Note:** `scripts/agent_check.sh` is a thin CI shim — all gate logic runs via `cargo xtask gate`. Gates 1-3, 9, 9.5 and 10-12 mirror `ci.yml`'s directly-declared steps; gates 3.5 and 4-8 are `gate.rs`'s own pre-existing verification, run by CI only indirectly (as part of the "Canonical repository verification" step); gates 3.6-3.8 mirror `security-audit.yml` and `semver-checks.yml`, which run `cargo-deny`/`cargo-audit`/`cargo-semver-checks` via dedicated GitHub Actions rather than a plain `cargo ...` line, so they're drift-checked separately (`security_and_semver_workflows_match_their_local_gates` in `xtask/src/gate.rs`'s `tests` module) instead of through the `GATE_COMMANDS`/`ci.yml` mechanism gates 1-3/9/9.5/10-12 use. If you add a new CI check in any of these three workflow files, add the matching gate in `xtask/src/gate.rs` and keep its drift test current — for the concrete markers it checks (see the next paragraph for exactly which ones, and what it doesn't cover), a test fails if either drifts from the other without the test being updated. `cargo-deny`, `cargo-audit`, and `cargo-semver-checks` are one-time local installs (`cargo install cargo-deny cargo-audit cargo-semver-checks --locked`); gates 3.6-3.8 fail with the exact install command if a binary is missing rather than skipping silently.
+>
+> That drift test guards the four concrete markers it names (the two Actions used, cargo-deny's `--all-features`, and the semver-checked package list) against silently drifting apart from `run()`'s real arguments — it is not a structural proof that the local gate and these two workflows are fully equivalent. Two known gaps, raised in review on this change (Aarogaming/aaroneous#89): gate 3.8's `--baseline-rev` value isn't covered at all (CI resolves its own baseline differently per event — PR base ref vs. pre-push commit — and nothing checks that `run()`'s hardcoded `origin/main` stays a reasonable local analog), and the test's plain substring checks would pass against a commented-out line in the workflow YAML just as readily as a real one. Closing these for real means parsing the workflow files structurally; until that happens, don't read "gate green" as more than it actually checked.
 >
 > Gate 3 runs `--all-targets` (test/bench/example code included), not just library and binary targets — as of 2026-09-27 it didn't for a while, which let real lint debt (module-name collisions, `Default`-then-reassign, an `await`-held `MutexGuard`, a couple of dozen others) accumulate silently in test code across many "gate passed" claims. See `aaroneous-devtools/governance/AUDIT_2026-09-26_DOCUMENTATION_AND_PROCESS.md` Finding 3. Don't narrow this back without a real reason.
 
