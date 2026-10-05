@@ -118,4 +118,7 @@ review-*.log
 review-*.md
 *.diff
 
+# Local vbranch lineage log (generated state from the vbranch lineage-
+# stamping tool, not source; introduced by Aarogaming/aaroneous#88, which
+# also adds xtask/src/vbranch.rs)
 .vbranch/
