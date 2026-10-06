@@ -5,7 +5,7 @@
 # deleting its line here, not leaving it stale.
 #
 # See docs/CRATIFY_SPEC.md section 2.3 for the grouped resolution plan for
-# each of the three violation families below.
+# each of the two violation families below.
 
 # kernel -> control: paths needs to split into a kernel-safe path-value crate
 # and a bootstrap discovery layer.
@@ -13,20 +13,13 @@ compute -> paths
 hypervisor -> paths
 ipc_bus -> paths
 
-# hypervisor library (kernel) -> control: hypervisor decomposition (M75) will
-# move composition logic out of the library and into the binaries or a
-# dedicated composition crate.
-hypervisor -> adaptation_engine
-hypervisor -> adaptation_plane
-hypervisor -> capabilities
+# hypervisor library (kernel) -> control: the hive_mind/host crate split
+# (hypervisor decomposition, M75) moved adaptation_engine/adaptation_plane/
+# capabilities/llm_gateway/transpiler composition logic out of the library
+# and into crates/coordinator and core/host; those edges are gone. The
+# remaining three (omni/governance/orchestrator) back sabs/constellation/
+# genetics/digestion/agents/control/hive/intelligence re-exports still in
+# the library and are not yet decomposed.
 hypervisor -> governance
-hypervisor -> llm_gateway
 hypervisor -> omni
 hypervisor -> orchestrator
-hypervisor -> transpiler
-
-# kernel/control -> ast_auditor (tooling): extract the analysis API these
-# crates call into a control-profile crate that ast_auditor also depends on.
-adaptation_engine -> ast_auditor
-capabilities -> ast_auditor
-hypervisor -> ast_auditor

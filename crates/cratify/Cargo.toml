@@ -8,6 +8,9 @@ description = "Universal Sovereign Cratification CLI & Orchestration Dispatcher"
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "tooling"
+
 [[bin]]
 name = "cratify"
 path = "src/main.rs"
@@ -15,7 +18,7 @@ path = "src/main.rs"
 [dependencies]
 clap = { version = "4.4", features = ["derive"] }
 anyhow = "1.0"
-ast_auditor = { path = "../ast_auditor" }
+cratify_core = { path = "../cratify_core" }
 transpiler = { path = "../transpiler" }
 adaptation_engine = { path = "../adaptation_engine" }
 paths = { path = "../paths" }

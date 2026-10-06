@@ -1,0 +1,29 @@
+[package]
+name = "cratify_core"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+description = "Core AST analysis and compliance logic for Cratify"
+license.workspace = true
+repository.workspace = true
+
+[package.metadata.cratify]
+profile = "control"
+
+[dependencies]
+syn = { version = "2.0", features = ["full", "visit", "visit-mut"] }
+quote = "1.0"
+proc-macro2 = { version = "1.0", features = ["span-locations"] }
+toml = "0.8"
+serde = { version = "1.0", features = ["derive"] }
+serde_json = { workspace = true }
+walkdir = "2.5"
+anyhow = "1.0"
+thiserror = "2.0"
+sha2 = "0.11"
+base64 = "0.22"
+ring = "0.17"
+
+[dev-dependencies]
+tempfile = { workspace = true }

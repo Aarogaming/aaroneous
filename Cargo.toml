@@ -39,6 +39,10 @@ members = [
     "xtask",
     "benches",
     "crates/local_inference",
+    "crates/cratify_core",
+    "crates/paths_core",
+    "crates/coordinator",
+    "core/host",
 ]
 
 exclude = [
@@ -52,7 +56,7 @@ exclude = [
 ]
 
 [workspace.package]
-version = "0.3.2"
+version = "0.4.0+vb.1c7xsuljasq29bw4o49kxhqm"
 edition = "2024"
 rust-version = "1.85"
 authors = ["Aaron"]

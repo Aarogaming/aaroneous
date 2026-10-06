@@ -11,6 +11,9 @@ use std::process::Command;
 fn main() {
     let manifest_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
     let plugins_dir = manifest_dir.join("../plugins");
+    let lineage = env!("CARGO_PKG_VERSION")
+        .split_once("+vb.")
+        .map_or("", |(_, lineage)| lineage);
     println!("cargo:rerun-if-changed={}", plugins_dir.display());
 
     // The nested build must not inherit the outer build's CARGO_TARGET_DIR (env
@@ -29,6 +32,7 @@ fn main() {
         .arg("--target-dir")
         .arg(&plugins_target_dir)
         .env_remove("CARGO_TARGET_DIR")
+        .env("AARONEOUS_BUILD_LINEAGE", lineage)
         .current_dir(&plugins_dir)
         .status()
         .expect("failed to invoke `cargo build` for the RFC-0006 PoC plugins workspace");

@@ -2,6 +2,7 @@
 /target/
 target/
 **/target/
+target-*/
 *.dll
 *.exe
 *.pdb
@@ -52,6 +53,8 @@ cargo_state.json
 /cargo_state.json
 core/hypervisor/cargo_state.json
 core/hypervisor/links_registry.json
+crates/coordinator/links_registry.json
+links_registry.json
 core/hypervisor/logs/
 dev/archive/logs/
 
@@ -116,7 +119,6 @@ review-*.md
 *.diff
 
 # Local vbranch lineage log (generated state from the vbranch lineage-
-# stamping tool, not source; see Aarogaming/aaroneous#88, which introduces
-# xtask/src/vbranch.rs — not yet on main as of this writing)
+# stamping tool, not source; introduced by Aarogaming/aaroneous#88, which
+# also adds xtask/src/vbranch.rs)
 .vbranch/
-
