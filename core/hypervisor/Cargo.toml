@@ -59,7 +59,7 @@ llama-gguf = { version = "0.14", optional = true, default-features = false, feat
 iroh = { version = "1.2", optional = true }
 n0-future = { version = "0.3", optional = true }
 nvml-wrapper = { version = "0.13", optional = true }
-notify = "6.1"
+notify = "8.2"
 parking_lot = "0.12"
 rand = "0.10"
 memmap2 = "0.9"
