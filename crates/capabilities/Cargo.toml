@@ -38,7 +38,7 @@ paths = { package = "paths", path = "../paths" }
 adaptation_plane = { path = "../adaptation_plane" }
 cratify_core = { path = "../cratify_core" }
 sdk = { path = "../../sdk/rust" }
-toml = "0.8"
+toml = "1.1"
 
 [dev-dependencies]
 tempfile = { workspace = true }
