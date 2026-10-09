@@ -26,7 +26,7 @@ dependencies = [
  "ipc_bus",
  "notify",
  "paths",
- "rand 0.8.8",
+ "rand 0.10.2",
  "rayon",
  "regex",
  "serde",
@@ -52,7 +52,7 @@ dependencies = [
  "compute",
  "ipc_bus",
  "paths",
- "rand 0.8.8",
+ "rand 0.10.2",
  "serde",
  "serde_json",
  "strum",
@@ -1476,7 +1476,7 @@ dependencies = [
  "num-traits",
  "parking_lot",
  "paths",
- "rand 0.8.8",
+ "rand 0.10.2",
  "rkyv 0.7.46",
  "rustfft",
  "serde",
@@ -2178,7 +2178,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c54e03a951783e8b327515db3f2a2fd0e3bed362a96b066f341ce66ed49b4ead"
 dependencies = [
  "data-encoding",
- "syn 3.0.5",
+ "syn 1.0.109",
 ]
 
 [[package]]
@@ -3526,7 +3526,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "compute",
- "rand 0.8.8",
+ "rand 0.10.2",
  "serde",
  "si_format",
  "si_ir",
@@ -6192,7 +6192,7 @@ dependencies = [
  "memmap2",
  "notify",
  "paths",
- "rand 0.8.8",
+ "rand 0.10.2",
  "regex",
  "reqwest 0.12.28",
  "serde",

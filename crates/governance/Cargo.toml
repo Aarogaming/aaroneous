@@ -17,7 +17,7 @@ compute = { path = "../compute", optional = true }
 si_ir = { path = "../si_ir" }
 si_format = { path = "../si_format" }
 z3 = { version = "0.21", optional = true }
-rand = { version = "0.8", optional = true }
+rand = { version = "0.10", optional = true }
 
 [features]
 default = []
