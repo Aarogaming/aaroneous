@@ -1825,7 +1825,7 @@ name = "cratify_core"
 version = "0.4.0+vb.1c7xsuljasq29bw4o49kxhqm"
 dependencies = [
  "anyhow",
- "base64 0.22.1",
+ "base64 0.23.1",
  "proc-macro2",
  "quote",
  "ring",
