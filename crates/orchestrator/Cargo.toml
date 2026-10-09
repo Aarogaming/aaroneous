@@ -28,7 +28,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 async-trait = "0.1"
 memmap2 = "0.9"
 tracing = "0.1"
-notify = "6.1"
+notify = "8.2"
 llama-gguf = { version = "0.14", optional = true, default-features = false, features = ["cpu"] }
 
 [dev-dependencies]
