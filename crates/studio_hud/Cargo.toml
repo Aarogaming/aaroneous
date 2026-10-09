@@ -63,7 +63,7 @@ tracing = "0.1"
 anyhow = "1.0"
 smol_str = "0.3"
 ron = "0.12"
-notify = "6.1"
+notify = "8.2"
 tokio = { version = "^1.40.0", features = ["rt", "time", "sync", "tracing"] }
 chrono = "0.4"
 
