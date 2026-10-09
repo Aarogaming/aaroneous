@@ -12,7 +12,7 @@ si_format = { path = "../si_format" }
 si_ir = { path = "../si_ir" }
 paths = { path = "../paths" }
 ipc_bus = { path = "../ipc_bus" }
-rand = "0.8"
+rand = "0.10"
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 bincode = { version = "2.0", features = ["serde"] }
