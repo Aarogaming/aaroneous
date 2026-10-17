@@ -6,6 +6,9 @@ authors.workspace = true
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "control"
+
 [dependencies]
 llama-gguf = { version = "0.14", default-features = false }
 anyhow = "1.0"

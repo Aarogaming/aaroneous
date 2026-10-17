@@ -8,5 +8,8 @@ description = "Dependency-free no_std deterministic scan kernel for Aaroneous co
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "kernel"
+
 [features]
 default = []

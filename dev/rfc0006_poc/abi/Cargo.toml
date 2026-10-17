@@ -5,6 +5,9 @@ edition.workspace = true
 license.workspace = true
 publish = false
 
+[package.metadata.cratify]
+profile = "kernel"
+
 [dependencies]
 bytemuck = { version = "1.14", features = ["derive"] }
 

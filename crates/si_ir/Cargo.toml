@@ -6,6 +6,9 @@ authors.workspace = true
 license.workspace = true
 description = "Machine-Native Synthetic Intelligence Intermediate Representation (IR), Type Lattices, and Dimensional Physical Invariants"
 
+[package.metadata.cratify]
+profile = "kernel"
+
 [dependencies]
 serde = { workspace = true }
 serde_json = { workspace = true }

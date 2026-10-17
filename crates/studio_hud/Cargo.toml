@@ -7,6 +7,9 @@ description = "Aaroneous Pillar 5: Desktop Studio & Telemetry HUD native egui/wg
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "presentation"
+
 [lib]
 path = "src/lib.rs"
 

@@ -7,6 +7,9 @@ description = "Sync-safe type definitions for LLM gateway configuration, model r
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "control"
+
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
 
