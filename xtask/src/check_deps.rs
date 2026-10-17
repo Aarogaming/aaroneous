@@ -340,14 +340,12 @@ pub fn run() -> Result<()> {
 
     let packages = load_workspace_packages(&workspace_root)?;
 
-    // Resolve each workspace package's profile: declared metadata wins,
-    // else the spec table, else it's unclassified (a hard failure).
+    // Resolve each workspace package's profile: declared metadata in Cargo.toml is required.
     let mut profiles: BTreeMap<String, Profile> = BTreeMap::new();
     let mut unclassified = Vec::new();
     for pkg in &packages {
         let declared = read_declared_profile(&pkg.manifest_path)?;
-        let profile = declared.or_else(|| spec_profiles.get(&pkg.name).copied());
-        match profile {
+        match declared {
             Some(p) => {
                 profiles.insert(pkg.name.clone(), p);
             }
@@ -357,12 +355,21 @@ pub fn run() -> Result<()> {
 
     if !unclassified.is_empty() {
         bail!(
-            "check-deps: {} workspace crate(s) have no Cratify profile (neither \
-             [package.metadata.cratify].profile nor a row in docs/CRATIFY_SPEC.md's \
-             2.2 table): {}",
+            "check-deps: {} workspace crate(s) lack [package.metadata.cratify].profile in their Cargo.toml: {}",
             unclassified.len(),
             unclassified.join(", ")
         );
+    }
+
+    // Verify consistency: declared manifest profile must match docs/CRATIFY_SPEC.md 2.2 table
+    for (pkg_name, profile) in &profiles {
+        if let Some(spec_profile) = spec_profiles.get(pkg_name) {
+            if profile != spec_profile {
+                bail!(
+                    "check-deps: crate '{pkg_name}' declares profile '{profile:?}' in its manifest, but docs/CRATIFY_SPEC.md assigns '{spec_profile:?}'"
+                );
+            }
+        }
     }
 
     let mut current_violations: BTreeSet<Edge> = BTreeSet::new();

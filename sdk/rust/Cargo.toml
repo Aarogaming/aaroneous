@@ -7,6 +7,9 @@ description = "Rust SDK with SynapseBridge for Aaroneous integration"
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "control"
+
 [dependencies]
 ipc_bus = { path = "../../crates/ipc_bus" }
 anyhow = "1.0"

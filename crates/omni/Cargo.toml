@@ -7,6 +7,9 @@ description = "Universal 3D Galaxy semantic data navigation, star-node clusterin
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "control"
+
 [dependencies]
 compute = { path = "../compute" }
 paths = { path = "../paths" }

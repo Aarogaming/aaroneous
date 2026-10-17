@@ -21,6 +21,9 @@ consumes = ["source_code", "diagnostics"]
 produces = ["audit_report", "vulnerability_list"]
 ring = 3
 
+[package.metadata.cratify]
+profile = "control"
+
 [dependencies]
 async-trait = "0.1"
 anyhow = "1.0"

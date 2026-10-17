@@ -6,6 +6,9 @@ publish = false
 description = "Performance benchmarks for Aaroneous core components"
 license.workspace = true
 
+[package.metadata.cratify]
+profile = "tooling"
+
 [lib]
 name = "benchmarks"
 path = "src/lib.rs"

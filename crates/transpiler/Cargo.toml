@@ -7,6 +7,9 @@ description = "Synthetic Intelligence (SI) to Conventional AI Inter-Intelligence
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "control"
+
 [dependencies]
 compute = { path = "../compute" }
 si_ir = { path = "../si_ir" }

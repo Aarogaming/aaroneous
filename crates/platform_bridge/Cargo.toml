@@ -7,6 +7,9 @@ description = "Universal frontend user emulation, visual perception, backend pro
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "kernel"
+
 [dependencies]
 async-trait = "0.1"
 anyhow = "1.0"

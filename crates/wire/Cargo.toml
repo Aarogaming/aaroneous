@@ -7,6 +7,9 @@ description = "Universal #![no_std] compatible wire protocol, COBS framing, and 
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "kernel"
+
 [dependencies]
 postcard = { version = "1.0", default-features = false }
 serde = { version = "1.0", default-features = false, features = ["derive"] }
