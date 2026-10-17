@@ -124,6 +124,8 @@ pub enum SyncMessageKind {
     WorkStealResponse,
     WorkResult,
     CartridgeLoraDeltaSync,
+    RoundTableEntrySync,
+    RoundTableCatchupRequest,
 }
 
 /// Dynamic .si LoRA Delta Synchronization Payload for P2P Mesh Weight Propagation
@@ -211,6 +213,33 @@ impl SyncMessage {
         let payload = serde_json::to_vec(req).unwrap_or_default();
         Self {
             kind: SyncMessageKind::WorkStealRequest,
+            payload,
+            from: from.0,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+            intent_version: 1,
+        }
+    }
+
+    pub fn round_table_entry(from: P2pNodeId, entry_json: &[u8]) -> Self {
+        Self {
+            kind: SyncMessageKind::RoundTableEntrySync,
+            payload: entry_json.to_vec(),
+            from: from.0,
+            timestamp: std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_secs())
+                .unwrap_or(0),
+            intent_version: 1,
+        }
+    }
+
+    pub fn round_table_catchup(from: P2pNodeId, since_id: u64) -> Self {
+        let payload = since_id.to_le_bytes().to_vec();
+        Self {
+            kind: SyncMessageKind::RoundTableCatchupRequest,
             payload,
             from: from.0,
             timestamp: std::time::SystemTime::now()

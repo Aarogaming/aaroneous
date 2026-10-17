@@ -51,7 +51,65 @@ Every crate in this repository is an independent, plug-and-play component block 
 
 ---
 
+### Operating principle: use and improve the component toolbelt
+
+Aaroneous is a toolbelt that contributors operate while building it. For real
+work, inspect and use an existing applicable component or tool within the task's
+authorized scope. Record the route used and its actual outcome. When use exposes
+a missing capability or limitation, improve the responsible component through
+the existing coordination, review, and verification process. If the improvement
+exceeds the task's scope, retain the evidence and hand off a bounded next step.
+
+Work in overlapping cycles: ground each next step in the task's intent,
+component contracts, operating standards, and retained evidence, then advance
+from the previous cycle's result. Operating and building the tools are
+intertwined; carry useful context and proven behavior forward as the route or
+layer changes. See the architecture's spiral-staircase and stepped double-helix
+analogies for this working intuition.
+
+Components should have enough depth to be useful independently and explicit
+contracts that let callers choose where a workflow enters, which intermediate
+layers it uses, and where it ends. A CLI, API, UI, another component, or an agent
+may expose different routes to the same capability. Those routes must preserve
+the applicable authority, safety, and evidence contracts; composition does not
+relax dependency direction or hot-path requirements.
+
+Local and cloud models participate as operators through the platform's tools.
+Preserve the operator's task, context, permissions, and review obligations when
+changing its model or interface. Aaroneous and devtools evolve through actual
+use together, with proven reusable components entering Aaroneous through the
+graduation gate. Prefer extending the existing component over creating a
+parallel implementation. A proposed route is an architectural intent until
+execution evidence establishes that it works.
+
+See [the canonical architecture's toolbelt guidance](docs/architecture/MASTER_ARCHITECTURE.md#component-toolbelt-and-operation-through-use)
+and [the contributor workflow](CONTRIBUTING.md#use-the-tools-while-building-them).
+
 ## 0.1 Local Agent Delegation & Model Bias
+
+### Local maintenance operator
+
+Use the local model for recurring, bounded work close to the workspace:
+artifact inventory, index freshness, audit-result classification, internal
+compliance triage, and housekeeping briefs. Existing program tools collect
+facts and run mechanical checks; the model interprets declared evidence and
+proposes the next action. Record tool outcomes separately from model findings.
+Frontier operators handle broader synthesis, difficult changes, and independent
+review under the same authority and evidence rules.
+
+Begin with read-only inventory and index freshness, then expand compliance
+triage through existing tools. Cache eviction requires explicit roots,
+retention rules, and an authorized tool; a model recommendation grants no
+deletion authority. Findings remain unverified until reviewed against their
+evidence. Reuse the existing worker and provider boundaries as this role grows.
+
+Feed validated maintenance findings into meaningful regression and adversarial
+tests for both components and the compliance tools themselves. Repeat full
+framework revalidation against an explicit revision as the standard evolves.
+Independent challenges from new perspectives must retain their scope and
+results; a passing gate is evidence of its exercised coverage. Re-versioning
+Aaroneous and Cratify requires explicit migration criteria, demonstrated
+conformance, recorded exceptions, independent review, and release authorization.
 
 - **Default Agent Bias**: `Qwen/Qwen2.5-Coder-14B-Instruct-AWQ` served by a local vLLM OpenAI-compatible server at `http://localhost:8000/v1` (migrated off Ollama; see `.agents/skills/local-agent-delegate/SKILL.md` for the full protocol and rationale).
 - **Autonomous Task Offloading**: When delegating code generation, method synthesis, refactoring, and test fixtures to local GPU models via `scripts/local_agent_delegate.ps1`, agents must default to `Qwen/Qwen2.5-Coder-14B-Instruct-AWQ`.
