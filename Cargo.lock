@@ -1115,7 +1115,7 @@ dependencies = [
  "serde_json",
  "tempfile",
  "tokio",
- "toml 0.8.23",
+ "toml 1.1.6+spec-1.1.0",
  "tracing",
 ]
 
@@ -1835,7 +1835,7 @@ dependencies = [
  "syn 2.0.119",
  "tempfile",
  "thiserror 2.0.21",
- "toml 0.8.23",
+ "toml 1.1.6+spec-1.1.0",
  "walkdir",
 ]
 
@@ -9174,7 +9174,7 @@ dependencies = [
  "si_ir",
  "tempfile",
  "tokio",
- "toml 0.8.23",
+ "toml 1.1.6+spec-1.1.0",
  "tracing",
 ]
 
