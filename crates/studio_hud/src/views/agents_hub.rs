@@ -562,29 +562,242 @@ impl HudView for AgentsHubView {
             }
 
             AgentsSubTab::SwarmMesh => {
-                ui.label("Distributed work stealing, Byzantine fault tolerance & P2P .si cartridge sync.");
-                ui.add_space(8.0);
+                ui.horizontal(|ui| {
+                    ui.label(
+                        egui::RichText::new("🌐 Peer-to-Peer Swarm Mesh & Guild Round Table")
+                            .strong()
+                            .color(theme.accent()),
+                    );
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        ui.label(
+                            egui::RichText::new("● P2P Iroh Active (Zero-Web / Pure QUIC)")
+                                .color(Color32::from_rgb(63, 185, 80))
+                                .size(11.0),
+                        );
+                    });
+                });
+                ui.add_space(4.0);
 
+                // Quorum & Federation Metrics Deck
                 ui.horizontal(|ui| {
                     egui::Frame::group(ui.style())
                         .fill(theme.card_bg())
-                        .corner_radius(CornerRadius::same(8))
+                        .corner_radius(CornerRadius::same(6))
                         .stroke(Stroke::new(1.0_f32, theme.border_color()))
                         .show(ui, |ui| {
-                            ui.set_min_size(Vec2::new(180.0, 70.0));
-                            ui.label("Active Quorums:");
+                            ui.set_min_size(Vec2::new(140.0, 50.0));
+                            ui.label(
+                                egui::RichText::new("Active Quorums")
+                                    .size(11.0)
+                                    .color(Color32::GRAY),
+                            );
                             ui.heading(format!("{}", state.swarm_live_quorums));
                         });
                     egui::Frame::group(ui.style())
                         .fill(theme.card_bg())
-                        .corner_radius(CornerRadius::same(8))
+                        .corner_radius(CornerRadius::same(6))
                         .stroke(Stroke::new(1.0_f32, theme.border_color()))
                         .show(ui, |ui| {
-                            ui.set_min_size(Vec2::new(180.0, 70.0));
-                            ui.label("Tasks Offloaded:");
+                            ui.set_min_size(Vec2::new(140.0, 50.0));
+                            ui.label(
+                                egui::RichText::new("Tasks Offloaded")
+                                    .size(11.0)
+                                    .color(Color32::GRAY),
+                            );
                             ui.heading(format!("{}", state.swarm_offload_count));
                         });
+                    egui::Frame::group(ui.style())
+                        .fill(theme.card_bg())
+                        .corner_radius(CornerRadius::same(6))
+                        .stroke(Stroke::new(1.0_f32, theme.border_color()))
+                        .show(ui, |ui| {
+                            ui.set_min_size(Vec2::new(140.0, 50.0));
+                            ui.label(
+                                egui::RichText::new("Ledger Entries")
+                                    .size(11.0)
+                                    .color(Color32::GRAY),
+                            );
+                            ui.heading(format!("{}", state.round_table_entries.len()));
+                        });
                 });
+
+                ui.add_space(8.0);
+                ui.separator();
+                ui.add_space(4.0);
+
+                // ── Round Table Ledger Timeline ─────────────────────────────
+                ui.label(
+                    egui::RichText::new("📜 Round Table Discussion Ledger")
+                        .strong()
+                        .size(13.0),
+                );
+                ui.add_space(4.0);
+
+                egui::ScrollArea::vertical()
+                    .max_height(260.0)
+                    .show(ui, |ui| {
+                        for entry in &state.round_table_entries {
+                            let (badge_color, kind_icon) = match entry.kind.as_str() {
+                                "idea" => (Color32::from_rgb(255, 215, 0), "💡"),
+                                "question" => (Color32::from_rgb(56, 139, 253), "❓"),
+                                "concern" => (Color32::from_rgb(248, 81, 73), "⚠️"),
+                                "evidence" => (Color32::from_rgb(63, 185, 80), "🔬"),
+                                "synthesis" => (Color32::from_rgb(163, 113, 247), "🔮"),
+                                _ => (Color32::GRAY, "📝"),
+                            };
+
+                            egui::Frame::group(ui.style())
+                                .fill(theme.card_bg())
+                                .stroke(Stroke::new(1.0_f32, theme.border_color()))
+                                .corner_radius(CornerRadius::same(6))
+                                .show(ui, |ui| {
+                                    ui.set_min_width(ui.available_width());
+                                    ui.horizontal(|ui| {
+                                        ui.label(
+                                            egui::RichText::new(format!("[#{}]", entry.id))
+                                                .monospace()
+                                                .color(Color32::GRAY),
+                                        );
+                                        ui.label(
+                                            egui::RichText::new(&entry.actor)
+                                                .strong()
+                                                .color(theme.accent()),
+                                        );
+                                        ui.label(
+                                            egui::RichText::new(format!(
+                                                "{} {}",
+                                                kind_icon, entry.kind
+                                            ))
+                                            .color(badge_color)
+                                            .size(11.0),
+                                        );
+                                        ui.with_layout(
+                                            egui::Layout::right_to_left(egui::Align::Center),
+                                            |ui| {
+                                                if entry.accepted {
+                                                    ui.label(
+                                                        egui::RichText::new("✓ ACCEPTED")
+                                                            .color(Color32::from_rgb(63, 185, 80))
+                                                            .size(10.0),
+                                                    );
+                                                } else {
+                                                    ui.label(
+                                                        egui::RichText::new(&entry.status)
+                                                            .color(Color32::GRAY)
+                                                            .size(10.0),
+                                                    );
+                                                }
+                                            },
+                                        );
+                                    });
+                                    ui.add_space(2.0);
+                                    ui.label(egui::RichText::new(&entry.text).size(12.0));
+                                    if !entry.evidence.is_empty() {
+                                        ui.add_space(2.0);
+                                        ui.horizontal(|ui| {
+                                            ui.label(
+                                                egui::RichText::new("Evidence:")
+                                                    .size(10.0)
+                                                    .color(Color32::GRAY),
+                                            );
+                                            ui.label(
+                                                egui::RichText::new(&entry.evidence)
+                                                    .size(10.0)
+                                                    .monospace()
+                                                    .color(Color32::from_rgb(121, 192, 255)),
+                                            );
+                                        });
+                                    }
+                                });
+                            ui.add_space(4.0);
+                        }
+                    });
+
+                ui.add_space(6.0);
+                ui.separator();
+                ui.add_space(4.0);
+
+                // ── Direct Contribution Composer ─────────────────────────────
+                egui::Frame::group(ui.style())
+                    .fill(theme.card_bg())
+                    .stroke(Stroke::new(1.0_f32, theme.border_color()))
+                    .corner_radius(CornerRadius::same(6))
+                    .show(ui, |ui| {
+                        ui.set_min_width(ui.available_width());
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new("Compose Entry:").strong());
+                            ui.label("Actor:");
+                            ui.add(
+                                egui::TextEdit::singleline(&mut state.round_table_composer_actor)
+                                    .desired_width(90.0),
+                            );
+                            ui.label("Kind:");
+                            egui::ComboBox::from_id_salt("composer_kind")
+                                .selected_text(&state.round_table_composer_kind)
+                                .show_ui(ui, |ui| {
+                                    for k in
+                                        &["idea", "question", "concern", "evidence", "synthesis"]
+                                    {
+                                        ui.selectable_value(
+                                            &mut state.round_table_composer_kind,
+                                            (*k).to_string(),
+                                            *k,
+                                        );
+                                    }
+                                });
+                        });
+                        ui.add_space(2.0);
+                        ui.add(
+                            egui::TextEdit::multiline(&mut state.round_table_composer_text)
+                                .hint_text(
+                                    "Enter multi-agent contribution or verification report...",
+                                )
+                                .desired_rows(2)
+                                .desired_width(ui.available_width()),
+                        );
+                        ui.add_space(2.0);
+                        ui.horizontal(|ui| {
+                            ui.label("Evidence URL/Command:");
+                            ui.add(
+                                egui::TextEdit::singleline(
+                                    &mut state.round_table_composer_evidence,
+                                )
+                                .hint_text("e.g. PR #228, cargo test exit 0...")
+                                .desired_width(ui.available_width() - 110.0),
+                            );
+                            if ui.button("🚀 Submit").clicked()
+                                && !state.round_table_composer_text.trim().is_empty()
+                            {
+                                let next_id = state
+                                    .round_table_entries
+                                    .iter()
+                                    .map(|e| e.id)
+                                    .max()
+                                    .unwrap_or(0)
+                                    + 1;
+                                state.round_table_entries.insert(
+                                    0,
+                                    crate::hud::state::RoundTableEntry {
+                                        id: next_id,
+                                        actor: state.round_table_composer_actor.clone(),
+                                        kind: state.round_table_composer_kind.clone(),
+                                        text: state.round_table_composer_text.clone(),
+                                        evidence: state.round_table_composer_evidence.clone(),
+                                        received_at_epoch: std::time::SystemTime::now()
+                                            .duration_since(std::time::UNIX_EPOCH)
+                                            .unwrap_or_default()
+                                            .as_secs_f64(),
+                                        attribution: "operator direct contribution".to_string(),
+                                        accepted: false,
+                                        status: "pending-verification".to_string(),
+                                    },
+                                );
+                                state.round_table_composer_text.clear();
+                                state.round_table_composer_evidence.clear();
+                                state.award_xp(20, "Posted Round Table Contribution");
+                            }
+                        });
+                    });
             }
         }
     }
