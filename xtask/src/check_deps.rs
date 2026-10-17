@@ -363,12 +363,14 @@ pub fn run() -> Result<()> {
 
     // Verify consistency: declared manifest profile must match docs/CRATIFY_SPEC.md 2.2 table
     for (pkg_name, profile) in &profiles {
-        if let Some(spec_profile) = spec_profiles.get(pkg_name) {
-            if profile != spec_profile {
-                bail!(
-                    "check-deps: crate '{pkg_name}' declares profile '{profile:?}' in its manifest, but docs/CRATIFY_SPEC.md assigns '{spec_profile:?}'"
-                );
-            }
+        if spec_profiles
+            .get(pkg_name)
+            .is_some_and(|spec_profile| profile != spec_profile)
+        {
+            let spec_profile = &spec_profiles[pkg_name];
+            bail!(
+                "check-deps: crate '{pkg_name}' declares profile '{profile:?}' in its manifest, but docs/CRATIFY_SPEC.md assigns '{spec_profile:?}'"
+            );
         }
     }
 
