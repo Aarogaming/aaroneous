@@ -38,6 +38,11 @@ ignore = [
     "RUSTSEC-2026-0196", # cgmath 0.18.0, unmaintained
     "RUSTSEC-2026-0197", # cgmath 0.18.0, unsound (swap_columns, unused here)
     "RUSTSEC-2024-0436", # paste 1.0.15, unmaintained
+    # Transitive via candle-core v0.11.0; ZipStreamReader::extract() / ZipArchive::extract()
+    # is not called anywhere in this workspace (grepped: zero ZipArchive / ZipStreamReader usage).
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
 ]
 
 [licenses]
