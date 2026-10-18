@@ -480,9 +480,25 @@ impl WorkspacePaths {
             for entry in entries.flatten() {
                 let path = entry.path();
                 if path.is_file() {
-                    if let Some(ext) = path.extension().and_then(|s| s.to_str())
-                        && ext.eq_ignore_ascii_case("gguf")
-                    {
+                    let is_gguf_ext = path
+                        .extension()
+                        .and_then(|s| s.to_str())
+                        .is_some_and(|ext| ext.eq_ignore_ascii_case("gguf"));
+
+                    let is_gguf_magic = if !is_gguf_ext {
+                        // Check if file starts with ASCII magic 'GGUF' (e.g. Ollama sha256 blobs)
+                        if let Ok(mut f) = fs::File::open(&path) {
+                            use std::io::Read;
+                            let mut buf = [0u8; 4];
+                            f.read_exact(&mut buf).is_ok() && &buf == b"GGUF"
+                        } else {
+                            false
+                        }
+                    } else {
+                        false
+                    };
+
+                    if is_gguf_ext || is_gguf_magic {
                         let file_name = path
                             .file_name()
                             .unwrap_or_default()
@@ -756,5 +772,44 @@ mod tests {
         std::fs::write(&module_store, b"{}").unwrap();
 
         assert_eq!(paths.module_preset("sentinel"), module_store);
+    }
+
+    #[test]
+    fn test_scan_all_gguf_magic_and_extension() {
+        let temp = tempfile::tempdir().unwrap();
+        let hub_dir = temp.path().join("mock_hub");
+        std::fs::create_dir_all(&hub_dir).unwrap();
+
+        // Standard .gguf extension
+        let file_named = hub_dir.join("model_a.gguf");
+        std::fs::write(&file_named, b"fake").unwrap();
+
+        // Blob file without .gguf extension but with 'GGUF' magic header
+        let file_blob = hub_dir.join("sha256-abcdef123456");
+        let mut blob_bytes = b"GGUF".to_vec();
+        blob_bytes.extend_from_slice(&[0u8; 64]);
+        std::fs::write(&file_blob, blob_bytes).unwrap();
+
+        // Random non-GGUF file
+        let file_other = hub_dir.join("notes.txt");
+        std::fs::write(&file_other, b"hello world").unwrap();
+
+        let paths = WorkspacePaths::discover(&WorkspacePathsConfig::new());
+        let discovered = paths.scan_all_gguf_models(&[hub_dir]);
+
+        assert!(
+            discovered.iter().any(|m| m.file_name == "model_a.gguf"),
+            "Should discover .gguf extension"
+        );
+        assert!(
+            discovered
+                .iter()
+                .any(|m| m.file_name == "sha256-abcdef123456"),
+            "Should discover GGUF magic blob without extension"
+        );
+        assert!(
+            !discovered.iter().any(|m| m.file_name == "notes.txt"),
+            "Should not discover non-GGUF file"
+        );
     }
 }
