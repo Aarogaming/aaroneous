@@ -18,39 +18,31 @@ use tracing::{info, warn};
 /// Clock source function returning current time in seconds since UNIX epoch.
 pub type ClockSource = Arc<dyn Fn() -> u64 + Send + Sync>;
 
-/// Monotonic system clock source returning seconds since UNIX epoch.
+/// Wrap a clock source so its observed value never moves backward.
 ///
-/// If system time steps backward or errors, holds the last known monotonic value rather
-/// than resetting to zero, preventing premature expiration or non-expiring entries.
-pub fn system_clock() -> ClockSource {
+/// The caller owns the underlying time authority. If the source steps backward or
+/// reports a lower fallback value, this adapter holds the last observed maximum.
+pub fn monotonic_clock(source: ClockSource) -> ClockSource {
     use std::sync::atomic::{AtomicU64, Ordering};
-    let initial = std::time::SystemTime::now()
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| d.as_secs())
-        .unwrap_or(0);
+    let initial = source();
     let last_good = Arc::new(AtomicU64::new(initial));
     let last_good_clone = last_good.clone();
-    Arc::new(
-        move || match std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH) {
-            Ok(d) => {
-                let s = d.as_secs();
-                let mut prev = last_good_clone.load(Ordering::Relaxed);
-                while s > prev {
-                    match last_good_clone.compare_exchange_weak(
-                        prev,
-                        s,
-                        Ordering::Relaxed,
-                        Ordering::Relaxed,
-                    ) {
-                        Ok(_) => break,
-                        Err(actual) => prev = actual,
-                    }
-                }
-                last_good_clone.load(Ordering::Relaxed)
+    Arc::new(move || {
+        let candidate = source();
+        let mut previous = last_good_clone.load(Ordering::Relaxed);
+        while candidate > previous {
+            match last_good_clone.compare_exchange_weak(
+                previous,
+                candidate,
+                Ordering::Relaxed,
+                Ordering::Relaxed,
+            ) {
+                Ok(_) => break,
+                Err(actual) => previous = actual,
             }
-            Err(_) => last_good_clone.load(Ordering::Relaxed),
-        },
-    )
+        }
+        last_good_clone.load(Ordering::Relaxed)
+    })
 }
 
 /// Health status of a registered entry.
@@ -643,11 +635,18 @@ mod tests {
     }
 
     #[test]
-    fn test_system_clock_monotonic_and_nonzero() {
-        let clock = system_clock();
-        let t1 = clock();
-        assert!(t1 > 0, "system clock must return a non-zero timestamp");
-        let t2 = clock();
-        assert!(t2 >= t1, "system clock must be monotonic");
+    fn test_monotonic_clock_clamps_regressions_and_recovers() {
+        let (source, timestamp) = mutable_clock(100);
+        let clock = monotonic_clock(source);
+
+        assert_eq!(clock(), 100);
+        timestamp.store(110, Ordering::SeqCst);
+        assert_eq!(clock(), 110);
+        timestamp.store(90, Ordering::SeqCst);
+        assert_eq!(clock(), 110);
+        timestamp.store(0, Ordering::SeqCst);
+        assert_eq!(clock(), 110);
+        timestamp.store(120, Ordering::SeqCst);
+        assert_eq!(clock(), 120);
     }
 }

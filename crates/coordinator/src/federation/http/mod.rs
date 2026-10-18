@@ -18,7 +18,7 @@ pub mod rest_api;
 /// # Usage
 ///
 /// ```no_run
-/// # async fn example() -> Result<(), Box<dyn std::error::Error>> {
+/// # async fn example(clock: hypervisor::unified_registry::ClockSource) -> Result<(), Box<dyn std::error::Error>> {
 /// use std::sync::Arc;
 /// use coordinator::federation::hive::Federation;
 /// use coordinator::federation::http::HttpStatusServer;
@@ -29,7 +29,7 @@ pub mod rest_api;
 ///
 /// fed.start_all().await?;
 ///
-/// let server = HttpStatusServer::spawn("127.0.0.1:8080".parse()?, fed.clone(), coordinator::federation::http::router::HttpServiceConfig::default()).await?;
+/// let server = HttpStatusServer::spawn("127.0.0.1:8080".parse()?, fed.clone(), coordinator::federation::http::router::HttpServiceConfig::default(), clock).await?;
 /// // server is now serving /healthz, /readyz, /status, /status/{kind}
 ///
 /// // ... run application ...

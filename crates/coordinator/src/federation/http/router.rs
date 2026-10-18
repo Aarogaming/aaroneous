@@ -183,15 +183,7 @@ pub struct AppState {
 }
 
 impl AppState {
-    pub fn new(federation: Arc<Federation>, cfg: HttpServiceConfig) -> Self {
-        Self::new_with_clock(
-            federation,
-            cfg,
-            hypervisor::unified_registry::system_clock(),
-        )
-    }
-
-    pub fn new_with_clock(
+    pub fn new(
         federation: Arc<Federation>,
         cfg: HttpServiceConfig,
         clock: hypervisor::unified_registry::ClockSource,
@@ -204,13 +196,9 @@ impl AppState {
         federation: Arc<Federation>,
         state_path: std::path::PathBuf,
         cfg: HttpServiceConfig,
+        clock: hypervisor::unified_registry::ClockSource,
     ) -> Self {
-        Self::new_with_state_path_and_clock(
-            federation,
-            state_path,
-            cfg,
-            hypervisor::unified_registry::system_clock(),
-        )
+        Self::new_with_state_path_and_clock(federation, state_path, cfg, clock)
     }
 
     pub(crate) fn new_with_state_path_and_clock(
