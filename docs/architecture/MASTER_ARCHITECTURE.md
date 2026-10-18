@@ -21,6 +21,96 @@ The **Aaroneous** project is an atomic, type-safe **Rust Component Framework** f
 
 ---
 
+## Component Toolbelt and Operation Through Use
+
+Aaroneous is a component toolbelt whose contributors use it to perform real work
+as they build it. The development loop is: select an existing capability,
+operate it on an authorized task, retain the actual outcome, improve the
+responsible component where use exposes a limitation, and exercise it again.
+Agent and human workflows are consumers of the framework and sources of
+concrete evidence for its next improvements.
+
+This loop progresses through overlapping cycles, like a spiral staircase.
+Each cycle returns to the shared center: the task's intent, component contracts,
+operating standards, and observed evidence. It then advances from what the
+previous cycle established. Grounding is a recurring part of motion: reuse
+retains proven behavior while the next step extends capability.
+
+The owner's stepped double-helix analogy describes two intertwined activities:
+operating the tools and building them. Concrete tasks, observations, reviewed
+changes, and verification connect those activities at each step. Their overlap
+lets experience carry forward between layers and cycles. This is an intuition
+for how contributors work, not a prescribed data structure or execution topology.
+
+The owner's "4096 maze" analogy expresses the breadth of possible routes
+through the component system; it specifies no literal route count. Each
+component should provide enough depth to be useful independently, with explicit
+contracts that allow callers to select an entry point, intermediate layers, and
+an exit point. The same capability may be reached through a CLI, API, UI, agent,
+or another component. Different compositions can serve different operating
+methods while respecting protection rings, dependency direction, three-phase
+scan separation, and the applicable allocation and authority rules.
+
+The platform should carry an operator's task, context, tools, permissions, and
+review obligations across interfaces and local or cloud model selections.
+Model output remains input to the governed execution path. Changing a model or
+route does not itself grant additional authority or establish successful
+execution. This is architectural intent; each implemented route requires its
+own retained evidence before it is described as operational.
+
+Aaroneous and its companion devtools are developed through use together.
+Devtools can exercise, evaluate, and help prove components; reusable behavior
+graduates into the appropriate existing workspace component under
+[CRATIFY_SPEC section 6](../CRATIFY_SPEC.md#6-component-graduation). Aaroneous
+remains independent of devtools, and graduation preserves a single source of
+implementation. External libraries or inference servers may supply an admitted
+adapter behind a workspace contract; they do not replace the framework's
+composition and governance responsibilities.
+
+Contributor practice is documented in [CONTRIBUTING.md](../../CONTRIBUTING.md#use-the-tools-while-building-them)
+and the agent operating directives in [AGENTS.md](../../AGENTS.md#operating-principle-use-and-improve-the-component-toolbelt).
+
+### Localized maintenance work
+
+The local model is a maintenance operator for bounded workspace work. Its
+recurring workload begins with artifact inventory and index freshness and
+extends to audit-result classification, internal compliance triage, and
+housekeeping briefs. Program tools acquire facts, enforce action bounds, and
+produce mechanical check results. The model interprets those declared results;
+its findings and recommendations retain a separate review status.
+
+Frontier operators consume these briefs for broader synthesis, difficult
+changes, and independent review. Both participate through the same toolbelt
+and authority contracts. Cache cleanup becomes an executable capability only
+when explicit roots, retention rules, and authorized tool actions are defined.
+Inventory counts, hashes, and model explanations alone establish neither
+behavioral correctness nor compliance.
+
+### Revalidation and evolution of the standard
+
+The entire framework must eventually be re-evaluated through its own current
+compliance gates. As components and standards evolve, repeat that evaluation
+against the declared revision and scope. Findings from actual use and local
+maintenance should improve the testing system: preserve a reproducer, add a
+meaningful regression or adversarial case, and crystallize the validated rule
+into the existing gate or compliance ratchet. Fixing a component and improving
+the check that detects its defect are connected steps in the same cycle.
+
+The verification tools themselves need repeated adversarial evaluation from
+new perspectives. Challenge missed violations, false passes, scope exclusions,
+boundary cases, and assumptions in the auditors and gate orchestration. Use
+isolated fixtures and explicit authority for vulnerability testing; retain the
+tested revision, command, result, and limits. Local maintenance can classify
+evidence and suggest cases; independent operators verify the findings and
+strengthen the checks. A passing gate establishes the coverage exercised at
+that revision, and ongoing challenges continue to test its blind spots.
+
+Re-version Aaroneous and Cratify to a newer standard only after the standard
+and migration criteria are explicit, the applicable framework has been
+revalidated, remaining exceptions are recorded, and independent review and
+release authorization are obtained. Version advancement records demonstrated
+conformance; it does not substitute for that work or erase retained baselines.
+
 ## Pillar 1: Component Framework Topology & Layered Protection Rings
 
 The repository operates as a single Cargo workspace consisting of discrete, single-responsibility component crates, completely devoid of directory or package naming prefixes (`aaroneous_*` ban).
