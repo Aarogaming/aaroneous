@@ -1183,8 +1183,7 @@ fn audit_workspace(root: &Path) -> Result<WorkspaceHealthReport> {
     let manifest_path = root.join("Cargo.toml");
     let manifest_text = std::fs::read_to_string(&manifest_path)
         .with_context(|| format!("reading {}", manifest_path.display()))?;
-    let manifest: toml::Value = manifest_text
-        .parse()
+    let manifest: toml::Value = toml::from_str(&manifest_text)
         .with_context(|| format!("parsing {}", manifest_path.display()))?;
 
     let string_list = |key: &str| -> Vec<String> {
@@ -1230,8 +1229,7 @@ fn audit_workspace(root: &Path) -> Result<WorkspaceHealthReport> {
     if lock_path.is_file() {
         let lock_text = std::fs::read_to_string(&lock_path)
             .with_context(|| format!("reading {}", lock_path.display()))?;
-        let lock: toml::Value = lock_text
-            .parse()
+        let lock: toml::Value = toml::from_str(&lock_text)
             .with_context(|| format!("parsing {}", lock_path.display()))?;
 
         let mut versions_by_name: BTreeMap<String, Vec<String>> = BTreeMap::new();
@@ -1871,6 +1869,36 @@ mod tests {
         assert_eq!(
             result["orphaned_crate_dirs"][0]["relative_path"],
             "crates/orphan"
+        );
+    }
+
+    #[test]
+    fn workspace_health_audit_rejects_malformed_manifest() {
+        let dir = tempfile::tempdir().unwrap();
+        let manifest_path = dir.path().join("Cargo.toml");
+        write(&manifest_path, "[workspace]\nmembers = [\"crates/a\"\n");
+
+        let error = audit_workspace(dir.path()).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            format!("parsing {}", manifest_path.display())
+        );
+    }
+
+    #[test]
+    fn workspace_health_audit_rejects_malformed_lockfile() {
+        let dir = tempfile::tempdir().unwrap();
+        write(
+            &dir.path().join("Cargo.toml"),
+            "[workspace]\nmembers = []\n",
+        );
+        let lock_path = dir.path().join("Cargo.lock");
+        write(&lock_path, "[[package]]\nname = \"incomplete\n");
+
+        let error = audit_workspace(dir.path()).unwrap_err();
+        assert_eq!(
+            error.to_string(),
+            format!("parsing {}", lock_path.display())
         );
     }
 
