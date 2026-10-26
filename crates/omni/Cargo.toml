@@ -19,7 +19,7 @@ serde_json = "1.0"
 tokio = { version = "1.0", features = ["full"] }
 tracing = "0.1"
 chrono = { version = "0.4", features = ["serde"] }
-bevy_ecs = "=0.14.2"
+bevy_ecs = "=0.20.0"
 glam = { version = "0.34", features = ["serde"] }
 
 [dev-dependencies]
