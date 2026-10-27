@@ -7,6 +7,9 @@ description = "Universal software adaptation, binary deconstruction, AST mutatio
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "control"
+
 [dependencies]
 ipc_bus = { path = "../ipc_bus" }
 paths = { path = "../paths" }

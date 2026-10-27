@@ -7,6 +7,9 @@ description = "Aaroneous: Decoupled LLM provider gateway, local discovery, promp
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "control"
+
 [dependencies]
 dirs = "7.0"
 

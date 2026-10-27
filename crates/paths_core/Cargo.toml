@@ -11,4 +11,7 @@ keywords.workspace = true
 categories.workspace = true
 readme.workspace = true
 
+[package.metadata.cratify]
+profile = "control"
+
 [dependencies]

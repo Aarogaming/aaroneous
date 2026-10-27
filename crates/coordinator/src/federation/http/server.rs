@@ -13,6 +13,7 @@
 /// task isolates the server's failures from the federation's hot path.
 use super::router::{AppState, HttpServiceConfig, router};
 use crate::federation::hive::Federation;
+use hypervisor::unified_registry::ClockSource;
 use std::net::SocketAddr;
 use std::sync::Arc;
 use tokio::net::TcpListener;
@@ -68,6 +69,7 @@ impl HttpStatusServer {
         addr: SocketAddr,
         federation: Arc<Federation>,
         cfg: HttpServiceConfig,
+        clock: ClockSource,
     ) -> Result<Self, HttpServerError> {
         let has_api_key = cfg.auth_key.is_some();
         if !addr.ip().is_loopback() && !has_api_key {
@@ -80,7 +82,7 @@ impl HttpStatusServer {
 
         let local_addr = listener.local_addr().map_err(HttpServerError::LocalAddr)?;
 
-        let state = AppState::new(federation, cfg);
+        let state = AppState::new(federation, cfg, clock);
         // Start background vault indexing — non-blocking, fires and forgets
         state.start_vault_indexing();
         // Start link dispatcher — delivers federation events to webhooks/Discord/Slack/etc.

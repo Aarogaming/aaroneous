@@ -11,6 +11,9 @@ keywords.workspace = true
 categories.workspace = true
 readme.workspace = true
 
+[package.metadata.cratify]
+profile = "kernel"
+
 [dependencies]
 bytemuck = { version = "1.14", default-features = false, features = ["derive"] }
 bitflags = { version = "2.4", default-features = false, features = ["serde"] }

@@ -8,6 +8,9 @@ description = "Aaroneous compliance auditor: multi-angle diff review with indepe
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "tooling"
+
 [lints.cargo]
 non_kebab_case_bins = "allow"
 

@@ -7,6 +7,9 @@ description = "SSM engine, .si containers, CKA+InfoNCE distillation, Cranelift J
 license.workspace = true
 repository.workspace = true
 
+[package.metadata.cratify]
+profile = "kernel"
+
 [dependencies]
 si_format = { path = "../si_format" }
 si_ir = { path = "../si_ir" }

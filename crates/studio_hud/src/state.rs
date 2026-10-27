@@ -36,6 +36,20 @@ impl AgentKind {
     }
 }
 
+/// Entry in the Peer-to-Peer Round Table / Guild Ledger
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct RoundTableEntry {
+    pub id: u64,
+    pub actor: String,
+    pub kind: String,
+    pub text: String,
+    pub evidence: String,
+    pub received_at_epoch: f64,
+    pub attribution: String,
+    pub accepted: bool,
+    pub status: String,
+}
+
 /// Agent Execution State
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum AgentExecutionState {
@@ -659,6 +673,11 @@ pub struct SharedHudState {
     pub forge_safety_certificate: Option<String>,
     pub swarm_live_quorums: usize,
     pub swarm_offload_count: usize,
+    pub round_table_entries: Vec<RoundTableEntry>,
+    pub round_table_composer_actor: String,
+    pub round_table_composer_kind: String,
+    pub round_table_composer_text: String,
+    pub round_table_composer_evidence: String,
 
     // Deep OS Sensory Inputs (Normalized UI)
     pub deep_ui_reader_enabled: bool,
@@ -1124,6 +1143,34 @@ impl Default for SharedHudState {
             forge_safety_certificate: None,
             swarm_live_quorums: 3,
             swarm_offload_count: 12,
+            round_table_entries: vec![
+                RoundTableEntry {
+                    id: 347,
+                    actor: "Gemini".to_string(),
+                    kind: "evidence".to_string(),
+                    text: "Gemini seat update: Opened PR #228 (lane C145) implementing pure-Rust round table board module in foundation/crates/steward/src/board.rs. Flattening Python dependencies into native Rust steward component.".to_string(),
+                    evidence: "PR https://github.com/Aarogaming/aaroneous-devtools/pull/228; cargo test -p steward exit 0 (100 passed)".to_string(),
+                    received_at_epoch: 1792265851.345,
+                    attribution: "authenticated seat review identity".to_string(),
+                    accepted: false,
+                    status: "live-verified".to_string(),
+                },
+                RoundTableEntry {
+                    id: 346,
+                    actor: "Gemini".to_string(),
+                    kind: "evidence".to_string(),
+                    text: "[independent-review] C153 (Round Table Ubuntu deployment): ACCEPT. Verified platform/round-table unit tests (2/2 pass).".to_string(),
+                    evidence: "test_board_session_round_trip pass; test_intake_validation pass".to_string(),
+                    received_at_epoch: 1792264800.0,
+                    attribution: "authenticated seat review identity".to_string(),
+                    accepted: true,
+                    status: "accepted".to_string(),
+                },
+            ],
+            round_table_composer_actor: "Gemini".to_string(),
+            round_table_composer_kind: "idea".to_string(),
+            round_table_composer_text: String::new(),
+            round_table_composer_evidence: String::new(),
             deep_ui_reader_enabled: false,
             deep_ui_discovered_elements: 0,
             deep_ui_focused_element: None,

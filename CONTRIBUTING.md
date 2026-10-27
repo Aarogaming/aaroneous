@@ -10,6 +10,40 @@ cargo xtask gate
 
 If it passes, you're good. If it fails, fix the first error and re-run.
 
+## Use the tools while building them
+
+Contributing includes operating Aaroneous's existing components on real work.
+Before introducing a new execution path, inspect the relevant tools and contracts
+and use an applicable existing route within your authorized scope. Capture the
+entry point, inputs, actual outcome, and any limitation encountered. Turn that
+limitation into a focused improvement to the responsible component or an
+evidence-backed handoff when the change is outside your scope.
+
+Treat successive iterations as overlapping turns of a spiral staircase. Before
+advancing, ground the next step in the task's intent, contracts, operating
+standards, and retained evidence. Carry forward the previous turn's useful
+context and proven behavior. Building and operating form the two intertwined
+strands; observations, reviewed changes, and verification connect them into
+concrete steps.
+
+For example, a calibration task should first exercise the available inference
+and worker capabilities. If an API mismatch prevents the task from proceeding,
+record that mismatch and extend the existing adapter through a scoped change.
+Exercise the resulting route again and retain the required verification evidence.
+This example describes a working method, not a claim that the integration is
+already complete.
+
+Build components with useful independent behavior and explicit contracts so
+workflows can enter and exit at different layers. CLI, API, UI, agent, and
+component callers can choose different compositions while retaining the same
+authority and safety requirements. Local and cloud model operators carry their
+task, context, permissions, and review obligations through those tools.
+
+Use devtools and Aaroneous together to discover and prove improvements. Reusable
+components follow the existing graduation gate into Aaroneous; the product
+remains independent of companion tooling. See the
+[canonical toolbelt guidance](docs/architecture/MASTER_ARCHITECTURE.md#component-toolbelt-and-operation-through-use).
+
 ## Rules (quick reference)
 
 The full policy is [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2). Every crate meets a **universal floor** and declares a **compliance profile** that adds stricter rules.

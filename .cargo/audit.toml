@@ -25,4 +25,10 @@ ignore = [
     # safe minimal patch — needs a dedicated migration, tracked separately
     # rather than bumped blindly under a CI-fix pass.
     "RUSTSEC-2026-0235",
+
+    # Transitive via candle-core v0.11.0: ZipStreamReader::extract() symlink vulnerability.
+    # Not reachable in this workspace (zero zip extraction call sites).
+    "RUSTSEC-2026-0367",
+    "RUSTSEC-2026-0368",
+    "RUSTSEC-2026-0369",
 ]
