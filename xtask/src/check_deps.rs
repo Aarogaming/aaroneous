@@ -332,13 +332,17 @@ fn find_workspace_root(start: &Path) -> Result<PathBuf> {
 pub fn run() -> Result<()> {
     let current_dir = std::env::current_dir()?;
     let workspace_root = find_workspace_root(&current_dir)?;
+    run_with_root(&workspace_root)
+}
 
+/// Run profile dependency-direction check against an explicit workspace root.
+pub fn run_with_root(workspace_root: &Path) -> Result<()> {
     let spec_path = workspace_root.join("docs").join("CRATIFY_SPEC.md");
     let spec_text = fs::read_to_string(&spec_path)
         .with_context(|| format!("reading {}", spec_path.display()))?;
-    let spec_profiles = build_profile_map_from_spec(&workspace_root, &spec_text)?;
+    let spec_profiles = build_profile_map_from_spec(workspace_root, &spec_text)?;
 
-    let packages = load_workspace_packages(&workspace_root)?;
+    let packages = load_workspace_packages(workspace_root)?;
 
     // Resolve each workspace package's profile: declared metadata in Cargo.toml is required.
     let mut profiles: BTreeMap<String, Profile> = BTreeMap::new();
