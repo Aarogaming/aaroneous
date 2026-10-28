@@ -51,21 +51,21 @@ pub struct LatentGELUBottleneckBridge {
 impl LatentGELUBottleneckBridge {
     /// Initializes the 2-layer GeLU Bottleneck with Kaiming-uniform initialization
     pub fn new(teacher_dim: usize, bottleneck_dim: usize, student_dim: usize) -> Self {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
+        use rand::RngExt;
+        let mut rng = rand::rng();
 
         let limit_1 = (6.0 / (teacher_dim + bottleneck_dim) as f32).sqrt();
         let size_1 = teacher_dim * bottleneck_dim;
         let mut weight_1 = Vec::with_capacity(size_1);
         for _ in 0..size_1 {
-            weight_1.push(rng.gen_range(-limit_1..limit_1));
+            weight_1.push(rng.random_range(-limit_1..limit_1));
         }
 
         let limit_2 = (6.0 / (bottleneck_dim + student_dim) as f32).sqrt();
         let size_2 = bottleneck_dim * student_dim;
         let mut weight_2 = Vec::with_capacity(size_2);
         for _ in 0..size_2 {
-            weight_2.push(rng.gen_range(-limit_2..limit_2));
+            weight_2.push(rng.random_range(-limit_2..limit_2));
         }
 
         Self {
@@ -544,13 +544,13 @@ impl Bootstrapper {
     /// Initializes the Bootstrapper with Kaiming-uniform weights for the
     /// classifier head and delegates bridge init to `LatentGELUBottleneckBridge`.
     pub fn new(bridge: LatentGELUBottleneckBridge, config: BootstrapperConfig) -> Self {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
+        use rand::RngExt;
+        let mut rng = rand::rng();
 
         let student_dim = bridge.student_dim;
         let limit = (6.0 / (student_dim + config.num_opcodes) as f32).sqrt();
         let classifier_w: Vec<f32> = (0..student_dim * config.num_opcodes)
-            .map(|_| rng.gen_range(-limit..limit))
+            .map(|_| rng.random_range(-limit..limit))
             .collect();
         let classifier_b = vec![0.0f32; config.num_opcodes];
 

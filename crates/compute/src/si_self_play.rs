@@ -11,7 +11,7 @@
 //! 3. Golden State Replay Buffer mixing + Trust Region (TRPO) gradient step bounding.
 
 use anyhow::Result;
-use rand::Rng;
+use rand::RngExt;
 use serde::{Deserialize, Serialize};
 use std::time::Instant;
 
@@ -89,11 +89,11 @@ impl SiSelfPlayEngine {
 
     /// Synthesizes an intrinsic curiosity goal by sampling perturbations around an anchor centroid
     pub fn generate_dream_goal(&self, anchor: &AnchorTransition) -> DreamGoal {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         let mut target_state = anchor.state_t.clone();
 
         for value in &mut target_state {
-            let noise: f32 = rng.gen_range(-self.exploration_sigma..self.exploration_sigma);
+            let noise: f32 = rng.random_range(-self.exploration_sigma..self.exploration_sigma);
             *value += noise;
         }
 

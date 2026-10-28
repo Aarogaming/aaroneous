@@ -34,14 +34,14 @@ pub struct AcousticIntentProjector {
 
 impl AcousticIntentProjector {
     pub fn new() -> Self {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
+        use rand::RngExt;
+        let mut rng = rand::rng();
 
         let size = AUDIO_FRAME_SAMPLES * MULTIMODAL_LATENT_DIM;
         let limit = (6.0 / (AUDIO_FRAME_SAMPLES + MULTIMODAL_LATENT_DIM) as f32).sqrt();
         let mut projection_weights = Vec::with_capacity(size);
         for _ in 0..size {
-            projection_weights.push(rng.gen_range(-limit..limit));
+            projection_weights.push(rng.random_range(-limit..limit));
         }
 
         Self {
