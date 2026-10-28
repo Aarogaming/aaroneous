@@ -299,26 +299,30 @@ pub fn format_baseline(counts: &BTreeMap<String, u64>) -> String {
 pub fn run(args: &[String]) -> Result<()> {
     let current_dir = std::env::current_dir()?;
     let workspace_root = find_workspace_root(&current_dir)?;
+    run_with_root(&workspace_root, args)
+}
 
-    let current = count_current(&workspace_root)?;
+/// Run the unwrap/panic ratchet check against an explicit workspace root.
+pub fn run_with_root(workspace_root: &Path, args: &[String]) -> Result<()> {
+    let current = count_current(workspace_root)?;
 
     if args.iter().any(|a| a == "--dump-baseline") {
         print!("{}", format_baseline(&current));
         return Ok(());
     }
 
-    let baseline = load_baseline(&baseline_path(&workspace_root))?;
+    let baseline = load_baseline(&baseline_path(workspace_root))?;
     let regressions = find_regressions(&current, &baseline);
 
     let total: u64 = current.values().sum();
-    println!(
+    eprintln!(
         "check-unwraps: {} package(s) scanned, {} total unwrap/expect/panic/assert occurrence(s).",
         current.len(),
         total
     );
 
     if regressions.is_empty() {
-        println!("check-unwraps: OK - no package exceeds its baseline.");
+        eprintln!("check-unwraps: OK - no package exceeds its baseline.");
         return Ok(());
     }
 
