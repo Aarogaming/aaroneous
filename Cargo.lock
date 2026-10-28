@@ -10715,6 +10715,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "ast_auditor",
+ "core-contracts",
  "hex",
  "regex",
  "serde",

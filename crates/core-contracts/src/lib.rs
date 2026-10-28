@@ -3,6 +3,8 @@
 #![no_std]
 #![deny(unsafe_code)]
 
+pub mod base36;
+pub use base36::*;
 pub mod metadata;
 pub use metadata::*;
 
@@ -314,6 +316,20 @@ pub struct FlightFileHeaderPod {
     pub build_lineage: [u8; 24],
 }
 
+impl FlightFileHeaderPod {
+    /// Returns the parsed Base36 build lineage stamp, or error if non-canonical.
+    #[inline]
+    pub fn lineage(&self) -> Result<Base36Lineage, Base36Error> {
+        Base36Lineage::from_ascii_bytes(self.build_lineage)
+    }
+
+    /// Sets the Base36 build lineage stamp.
+    #[inline]
+    pub fn set_lineage(&mut self, lineage: Base36Lineage) {
+        self.build_lineage = lineage.bytes;
+    }
+}
+
 impl Default for FlightFileHeaderPod {
     fn default() -> Self {
         Self {
@@ -324,7 +340,7 @@ impl Default for FlightFileHeaderPod {
             header_size: 4096,
             write_sequence: 0,
             wrap_count: 0,
-            build_lineage: [0u8; 24],
+            build_lineage: Base36Lineage::ZERO.bytes,
         }
     }
 }
@@ -459,11 +475,13 @@ mod tests {
         assert!(decoded.verify_checksum());
 
         let header = FlightFileHeaderPod::default();
+        assert_eq!(header.lineage().unwrap(), Base36Lineage::ZERO);
         let h_bytes = bytemuck::bytes_of(&header);
         assert_eq!(h_bytes.len(), 64);
         let decoded_h: &FlightFileHeaderPod = bytemuck::from_bytes(h_bytes);
         assert_eq!(*decoded_h, header);
         assert_eq!(&decoded_h.magic, b"AAROFLGT");
+        assert_eq!(decoded_h.lineage().unwrap(), Base36Lineage::ZERO);
     }
 
     #[test]

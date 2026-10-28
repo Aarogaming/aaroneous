@@ -4,102 +4,10 @@ use std::fs::OpenOptions;
 use std::io::Write;
 use std::path::Path;
 
-pub const LINEAGE_ID_LEN: usize = 24;
-const LINEAGE_DIGEST_BYTES: usize = 15;
-const MAX_INPUT_BYTES: usize = 4_096;
-const MAX_ENCODED_CHARS: usize = 8_192;
-
-pub fn encode_base36(input: &[u8]) -> Result<String> {
-    if input.len() > MAX_INPUT_BYTES {
-        bail!("input exceeds {MAX_INPUT_BYTES} bytes");
-    }
-    if input.is_empty() {
-        return Ok(String::new());
-    }
-    let mut num = input.to_vec();
-    let mut result = String::new();
-    let alphabet = b"0123456789abcdefghijklmnopqrstuvwxyz";
-    while !num.is_empty() {
-        let mut remainder = 0usize;
-        let mut next_num = Vec::new();
-        let mut started = false;
-        for &byte in num.iter() {
-            let val = (remainder << 8) | (byte as usize);
-            let div = val / 36;
-            remainder = val % 36;
-            if div > 0 || started {
-                next_num.push(div as u8);
-                started = true;
-            }
-        }
-        result.push(alphabet[remainder] as char);
-        num = next_num;
-    }
-    let mut reversed: String = result.chars().rev().collect();
-    for &byte in input.iter() {
-        if byte == 0 {
-            reversed.insert(0, '0');
-        } else {
-            break;
-        }
-    }
-    Ok(reversed)
-}
-
-pub fn decode_base36(input: &str) -> Result<Vec<u8>> {
-    if input.len() > MAX_ENCODED_CHARS {
-        bail!("encoded input exceeds {MAX_ENCODED_CHARS} characters");
-    }
-    if input.is_empty() {
-        return Ok(Vec::new());
-    }
-    let mut num: Vec<u8> = Vec::new();
-    for c in input.chars() {
-        let val = c
-            .to_digit(36)
-            .with_context(|| format!("invalid Base36 character '{c}'"))? as usize;
-        let mut carry = val;
-        let mut next_num = Vec::new();
-        for &byte in num.iter().rev() {
-            let v = (byte as usize) * 36 + carry;
-            next_num.push((v % 256) as u8);
-            carry = v / 256;
-        }
-        while carry > 0 {
-            next_num.push((carry % 256) as u8);
-            carry /= 256;
-        }
-        next_num.reverse();
-        num = next_num;
-    }
-    let mut num_zeros = 0;
-    for c in input.chars() {
-        if c == '0' {
-            num_zeros += 1;
-        } else {
-            break;
-        }
-    }
-    let mut result = vec![0u8; num_zeros];
-    result.extend(num);
-    Ok(result)
-}
-
-pub fn lineage_id(message: &str) -> Result<String> {
-    if message.is_empty() {
-        bail!("lineage message must not be empty");
-    }
-    if message.len() > MAX_INPUT_BYTES {
-        bail!("lineage message exceeds {MAX_INPUT_BYTES} bytes");
-    }
-    let digest = Sha256::digest(message.as_bytes());
-    let mut encoded = encode_base36(&digest[..LINEAGE_DIGEST_BYTES])?;
-    if encoded.len() > LINEAGE_ID_LEN {
-        bail!("internal lineage encoding exceeded {LINEAGE_ID_LEN} characters");
-    }
-    encoded.insert_str(0, &"0".repeat(LINEAGE_ID_LEN - encoded.len()));
-    Ok(encoded)
-}
+pub use crate::base36::{
+    LINEAGE_DIGEST_BYTES, LINEAGE_ID_LEN, MAX_ENCODED_CHARS, MAX_INPUT_BYTES, decode_base36,
+    encode_base36, lineage_id,
+};
 
 pub fn append_to_log(log_path: &Path, lineage: &str, message: &str) -> Result<()> {
     if let Some(parent) = log_path.parent() {

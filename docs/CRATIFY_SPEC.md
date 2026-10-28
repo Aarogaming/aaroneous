@@ -272,6 +272,15 @@ Rules this specification declares but `ast_auditor` does not yet enforce, in ado
    fails the gate.
 10. Extend the gate's audit scope to `xtask/`, `sdk/`, and `benches/`.
 11. Documentation gate: relative links resolve with exact case, no `file:///` or drive-letter links.
+12. Base36 Version & Lifecycle Notation Contract (C88 / P05):
+    All component build sheets, virtual-branch lineage stamps, and lifecycle records follow the
+    canonical lowercase Base36 contract (`v1` schema) defined in `core_contracts::base36` and
+    `xtask::base36`:
+    - Strict alphabet: `0123456789abcdefghijklmnopqrstuvwxyz` (uppercase rejected).
+    - Fixed 24-character lifecycle stamps (`Base36Lineage`, 192-bit) with `'0'` left-padding.
+    - Big-endian digit weighting matching numeric magnitude ordering.
+    - Zero sentinel (`"000000000000000000000000"`), tombstone max sentinel (`"zzzzzzzzzzzzzzzzzzzzzzzz"`).
+    - Validated by `cargo xtask base36 validate <string>`.
 
 ---
 

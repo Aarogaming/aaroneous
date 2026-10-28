@@ -23,4 +23,5 @@ ast_auditor = { path = "../crates/ast_auditor" }
 walkdir = "2.5"
 
 [dev-dependencies]
+core-contracts = { path = "../crates/core-contracts" }
 tempfile = { workspace = true }
