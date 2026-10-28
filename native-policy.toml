@@ -178,7 +178,7 @@ owning_adapter = ["hypervisor", "studio_hud", "api", "scratchpad"]
 
 [[allowed]]
 name = "zstd-sys"
-version = "2.1.0+zstd.1.5.7"
+version = "2.1.2+zstd.1.5.7"
 justification = "Zstandard compression backing hypervisor's and coordinator's direct `zstd` dependency, used for archive/snapshot compression."
 owning_adapter = ["hypervisor", "coordinator"]
 
