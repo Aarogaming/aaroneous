@@ -11,6 +11,7 @@ use tracing::{debug, info, warn};
 pub struct OpenAIProvider {
     api_key: String,
     model: String,
+    base_url: Option<String>,
     temperature: f32,
     max_tokens: u32,
 }
@@ -48,15 +49,24 @@ struct Usage {
 }
 
 impl OpenAIProvider {
-    pub async fn new(api_key: String) -> Result<Self> {
-        info!("Initialized OpenAI provider");
+    pub async fn new_explicit(
+        api_key: String,
+        model: String,
+        base_url: Option<String>,
+    ) -> Result<Self> {
+        info!("Initialized OpenAI provider with model: {}", model);
 
         Ok(Self {
             api_key,
-            model: "gpt-4".to_string(),
+            model,
+            base_url,
             temperature: 0.7,
             max_tokens: 2000,
         })
+    }
+
+    pub async fn new(api_key: String) -> Result<Self> {
+        Self::new_explicit(api_key, "gpt-4".to_string(), None).await
     }
 
     async fn call_api(&self, prompt: &str) -> Result<(String, u32, f64)> {
@@ -82,8 +92,12 @@ impl OpenAIProvider {
         // raw primitive; the `with_timeout` helper in
         // `resilience` is the same shape but lives alongside
         // the other async resilience primitives.
+        let url = match &self.base_url {
+            Some(base) => format!("{}/chat/completions", base.trim_end_matches('/')),
+            None => "https://api.openai.com/v1/chat/completions".to_string(),
+        };
         let send_fut = client
-            .post("https://api.openai.com/v1/chat/completions")
+            .post(&url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&request)
             .send();
@@ -425,8 +439,13 @@ Respond ONLY with valid JSON matching:
             max_tokens: self.max_tokens,
         };
 
+        let url = match &self.base_url {
+            Some(base) => format!("{}/chat/completions", base.trim_end_matches('/')),
+            None => "https://api.openai.com/v1/chat/completions".to_string(),
+        };
+
         let response = client
-            .post("https://api.openai.com/v1/chat/completions")
+            .post(&url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&request)
             .send()
@@ -476,8 +495,13 @@ Respond ONLY with valid JSON matching:
             model: "text-embedding-3-small".to_string(),
         };
 
+        let url = match &self.base_url {
+            Some(base) => format!("{}/embeddings", base.trim_end_matches('/')),
+            None => "https://api.openai.com/v1/embeddings".to_string(),
+        };
+
         let response = client
-            .post("https://api.openai.com/v1/embeddings")
+            .post(&url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&req)
             .send()
@@ -501,10 +525,64 @@ Respond ONLY with valid JSON matching:
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::providers::LLMProvider;
 
     #[tokio::test]
     async fn test_openai_provider_creation() {
         let result = OpenAIProvider::new("mock-api-key".to_string()).await;
         assert!(result.is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_openai_chat_and_embed_route_to_custom_base_url_with_auth() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+
+        tokio::spawn(async move {
+            for _ in 0..2 {
+                let (mut socket, _) = listener.accept().await.unwrap();
+                let mut buf = vec![0u8; 4096];
+                let n = socket.read(&mut buf).await.unwrap();
+                let req = String::from_utf8_lossy(&buf[..n]);
+
+                assert!(req.contains("Bearer test-key-12345"));
+
+                if req.starts_with("POST /chat/completions") {
+                    let body = r#"{"choices":[{"message":{"role":"assistant","content":"mock response"}}],"usage":{"_prompt_tokens":10,"_completion_tokens":5,"total_tokens":15}}"#;
+                    let resp = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                        body.len(),
+                        body
+                    );
+                    socket.write_all(resp.as_bytes()).await.unwrap();
+                } else if req.starts_with("POST /embeddings") {
+                    let body = r#"{"data":[{"embedding":[0.1,0.2,0.3]}]}"#;
+                    let resp = format!(
+                        "HTTP/1.1 200 OK\r\nContent-Type: application/json\r\nContent-Length: {}\r\n\r\n{}",
+                        body.len(),
+                        body
+                    );
+                    socket.write_all(resp.as_bytes()).await.unwrap();
+                } else {
+                    panic!("Unexpected request: {}", req);
+                }
+            }
+        });
+
+        let base_url = format!("http://{}", addr);
+        let provider = OpenAIProvider::new_explicit(
+            "test-key-12345".to_string(),
+            "gpt-4".to_string(),
+            Some(base_url),
+        )
+        .await
+        .unwrap();
+
+        let chat_res = provider.chat("sys", "hello", "general").await.unwrap();
+        assert_eq!(chat_res, "mock response");
+
+        let embed_res = provider.embed("hello").await.unwrap();
+        assert_eq!(embed_res, vec![0.1, 0.2, 0.3]);
     }
 }
