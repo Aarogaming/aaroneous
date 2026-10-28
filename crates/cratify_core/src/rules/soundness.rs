@@ -35,7 +35,7 @@ impl<'ast> Visit<'ast> for SoundnessVisitor<'_> {
     }
     fn visit_item_impl(&mut self, node: &'ast syn::ItemImpl) {
         if node.unsafety.is_some()
-            && node.trait_.as_ref().is_some_and(|(_, path, _)| {
+            && node.trait_.as_ref().is_some_and(|(path, _)| {
                 path.segments
                     .last()
                     .is_some_and(|s| matches!(s.ident.to_string().as_str(), "Pod" | "Zeroable"))
