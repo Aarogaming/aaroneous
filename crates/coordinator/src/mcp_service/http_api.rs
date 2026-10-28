@@ -76,6 +76,7 @@ type SseSessions = Arc<
 #[derive(Clone)]
 pub struct McpAppState {
     pub service: Arc<McpService>,
+    pub auth: Arc<tokio::sync::RwLock<crate::mcp_service::ApiKeyAuth>>,
     /// Active SSE session channels (session_id → broadcast sender)
     pub sse_sessions: SseSessions,
     /// Bind address for deriving SSE endpoint URLs dynamically.
@@ -86,12 +87,23 @@ pub struct McpAppState {
 
 pub struct HttpServer {
     addr: SocketAddr,
-    cfg: McpServiceConfig,
+    auth: Option<Arc<tokio::sync::RwLock<crate::mcp_service::ApiKeyAuth>>>,
 }
 
 impl HttpServer {
-    pub fn new(addr: SocketAddr, cfg: McpServiceConfig) -> Self {
-        Self { addr, cfg }
+    pub fn new(addr: SocketAddr, _cfg: McpServiceConfig) -> Self {
+        Self { addr, auth: None }
+    }
+
+    pub fn with_auth(
+        addr: SocketAddr,
+        _cfg: McpServiceConfig,
+        auth: Arc<tokio::sync::RwLock<crate::mcp_service::ApiKeyAuth>>,
+    ) -> Self {
+        Self {
+            addr,
+            auth: Some(auth),
+        }
     }
 
     pub fn addr(&self) -> SocketAddr {
@@ -99,11 +111,33 @@ impl HttpServer {
     }
 
     /// Build and start the MCP HTTP+SSE server.
-    pub async fn run(self, service: Arc<McpService>) -> Result<(), Box<dyn std::error::Error>> {
-        let has_api_key = self.cfg.auth_key.is_some();
-        if !self.addr.ip().is_loopback() && !has_api_key {
+    pub async fn run(
+        self,
+        service: Arc<McpService>,
+        cfg: McpServiceConfig,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let auth = match self.auth {
+            Some(a) => a,
+            None => {
+                let mut api_auth =
+                    crate::mcp_service::ApiKeyAuth::with_clock(service.clock.clone());
+                if let Some(ref key) = cfg.auth_key {
+                    api_auth.register_key_with_class(
+                        key,
+                        "operator",
+                        crate::mcp_service::CapabilityClass::Mutation,
+                        vec!["*".to_string()],
+                        crate::capability_broker::SandboxPolicy::FullPrivilege,
+                    );
+                }
+                Arc::new(tokio::sync::RwLock::new(api_auth))
+            }
+        };
+
+        let has_api_keys = !auth.read().await.is_empty();
+        if !self.addr.ip().is_loopback() && !has_api_keys {
             return Err(format!(
-                "refusing non-loopback MCP bind {} without auth key",
+                "refusing non-loopback MCP bind {} without auth keys configured",
                 self.addr
             )
             .into());
@@ -111,34 +145,12 @@ impl HttpServer {
 
         let state = McpAppState {
             service,
+            auth,
             sse_sessions: Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
             bind_addr: self.addr,
         };
 
-        // Build separate routers: protected routes get auth middleware,
-        // health/discovery routes remain unauthenticated.
-        let auth_key = self.cfg.auth_key.clone();
-        let protected = Router::new()
-            // MCP JSON-RPC 2.0 transport (primary)
-            .route("/mcp", post(handle_mcp_post))
-            // SSE transport (for Claude Desktop / streaming clients)
-            .route("/sse", get(handle_sse))
-            .layer(axum::middleware::from_fn(
-                move |headers: HeaderMap, req: axum::extract::Request<Body>, next: Next| {
-                    mcp_api_key_auth_inner(headers, req, next, auth_key.clone())
-                },
-            ));
-
-        let public = Router::new()
-            // Health probe (unauthenticated)
-            .route("/health", get(handle_health))
-            // MCP discovery endpoint (returns server info)
-            .route("/", get(handle_root));
-
-        let app = Router::new()
-            .merge(protected)
-            .merge(public)
-            .with_state(state.clone());
+        let app = build_app(state);
 
         let listener = tokio::net::TcpListener::bind(self.addr).await?;
         info!("MCP server listening on {} (JSON-RPC 2.0 + SSE)", self.addr);
@@ -156,47 +168,112 @@ impl HttpServer {
     }
 }
 
+/// Construct the Axum application router from McpAppState.
+pub fn build_app(state: McpAppState) -> Router {
+    let state_for_auth = state.clone();
+    let protected = Router::new()
+        // MCP JSON-RPC 2.0 transport (primary)
+        .route("/mcp", post(handle_mcp_post))
+        // SSE transport (for Claude Desktop / streaming clients)
+        .route("/sse", get(handle_sse))
+        .layer(axum::middleware::from_fn(
+            move |headers: HeaderMap, req: axum::extract::Request<Body>, next: Next| {
+                let st = state_for_auth.clone();
+                mcp_api_key_auth_inner(headers, req, next, st)
+            },
+        ));
+
+    let public = Router::new()
+        // Health probe (unauthenticated)
+        .route("/health", get(handle_health))
+        // MCP discovery endpoint (returns server info)
+        .route("/", get(handle_root));
+
+    Router::new()
+        .merge(protected)
+        .merge(public)
+        .with_state(state)
+}
+
 // ── Auth Middleware ───────────────────────────────────────────────────────────
 
-/// API-key auth guard for MCP routes (called with pre-configured key).
+/// API-key auth guard for MCP routes (derives trusted CallerContext).
 async fn mcp_api_key_auth_inner(
     headers: HeaderMap,
-    req: axum::extract::Request<Body>,
+    mut req: axum::extract::Request<Body>,
     next: Next,
-    auth_key: Option<String>,
+    state: McpAppState,
 ) -> Response {
-    let required_key = auth_key.clone().unwrap_or_default();
-
+    let now_ms = state.service.clock.now_ms();
     let provided = headers
         .get("authorization")
         .and_then(|v| v.to_str().ok())
         .and_then(|s| {
             s.strip_prefix("Bearer ")
                 .or_else(|| s.strip_prefix("bearer "))
-        });
+        })
+        .map(|s| s.trim());
 
-    match provided {
-        Some(key) if key == required_key => next.run(req).await,
-        _ => (
-            StatusCode::UNAUTHORIZED,
-            Json(serde_json::json!({
-                "error": "Unauthorized",
-                "message": "Set Authorization: Bearer <AARONEOUS_API_KEY>"
-            })),
-        )
-            .into_response(),
+    let auth_guard = state.auth.read().await;
+    if let Some(token) = provided {
+        if token.is_empty() {
+            return (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "error": "Unauthorized",
+                    "message": "Bearer token must not be empty"
+                })),
+            )
+                .into_response();
+        }
+
+        match auth_guard.authenticate_caller(token, now_ms) {
+            Ok(caller) => {
+                drop(auth_guard);
+                req.extensions_mut().insert(caller);
+                next.run(req).await
+            }
+            Err(err) => (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "error": "Unauthorized",
+                    "message": err.to_string()
+                })),
+            )
+                .into_response(),
+        }
+    } else {
+        // No credentials provided
+        if auth_guard.is_empty() && state.bind_addr.ip().is_loopback() {
+            // Local loopback compatibility adapter with zero keys configured
+            drop(auth_guard);
+            let caller = crate::mcp_service::CallerContext::local_development(now_ms);
+            req.extensions_mut().insert(caller);
+            next.run(req).await
+        } else {
+            (
+                StatusCode::UNAUTHORIZED,
+                Json(serde_json::json!({
+                    "error": "Unauthorized",
+                    "message": "Valid Authorization: Bearer <AARONEOUS_API_KEY> required"
+                })),
+            )
+                .into_response()
+        }
     }
 }
 
-///
 /// Accepts both single requests and batched arrays.
 /// Returns single response or array of responses.
 async fn handle_mcp_post(
     State(state): State<McpAppState>,
     axum::extract::Query(params): axum::extract::Query<std::collections::HashMap<String, String>>,
+    axum::extract::Extension(caller): axum::extract::Extension<crate::mcp_service::CallerContext>,
     body: axum::body::Bytes,
 ) -> impl IntoResponse {
     let session_id = params.get("session").cloned();
+    let now_ms = state.service.clock.now_ms();
+
     // Parse request body as JSON
     let raw: Value = match serde_json::from_slice(&body) {
         Ok(v) => v,
@@ -219,10 +296,16 @@ async fn handle_mcp_post(
         for req in requests {
             // Skip notifications (no id field)
             if req.get("id").is_none() {
-                state.service.handle_jsonrpc(req.clone()).await;
+                state
+                    .service
+                    .handle_jsonrpc_with_context(req.clone(), &caller, now_ms)
+                    .await;
                 continue;
             }
-            let resp = state.service.handle_jsonrpc(req.clone()).await;
+            let resp = state
+                .service
+                .handle_jsonrpc_with_context(req.clone(), &caller, now_ms)
+                .await;
             responses.push(serde_json::to_value(resp).unwrap_or_default());
         }
         return Json(Value::Array(responses)).into_response();
@@ -236,7 +319,10 @@ async fn handle_mcp_post(
             .map(|m| m.starts_with("notifications/"))
             .unwrap_or(false);
 
-    let resp = state.service.handle_jsonrpc(raw).await;
+    let resp = state
+        .service
+        .handle_jsonrpc_with_context(raw, &caller, now_ms)
+        .await;
 
     if is_notification {
         return StatusCode::NO_CONTENT.into_response();
@@ -385,4 +471,243 @@ async fn handle_root(State(state): State<McpAppState>) -> impl IntoResponse {
             }
         }
     }))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::mcp_service::auth::{ApiKeyAuth, MockClock};
+    use crate::mcp_service::capability::CapabilityClass;
+    use crate::mcp_service::config::ServiceConfig;
+    use crate::mcp_service::service::McpService;
+    use axum::http::Request;
+    use std::sync::Arc;
+    use tower::ServiceExt;
+
+    fn setup_test_app(
+        clock: Arc<dyn crate::mcp_service::Clock>,
+        bind_addr: SocketAddr,
+    ) -> (Router, Arc<tokio::sync::RwLock<ApiKeyAuth>>) {
+        let service = Arc::new(McpService::with_workspace_root_and_clock(
+            ServiceConfig::default(),
+            std::path::PathBuf::from("."),
+            clock.clone(),
+        ));
+        let auth = Arc::new(tokio::sync::RwLock::new(ApiKeyAuth::with_clock(clock)));
+        let state = McpAppState {
+            service,
+            auth: auth.clone(),
+            sse_sessions: Arc::new(tokio::sync::RwLock::new(std::collections::HashMap::new())),
+            bind_addr,
+        };
+        (build_app(state), auth)
+    }
+
+    #[tokio::test]
+    async fn test_http_readonly_key_refused_mutation_tool() {
+        let clock = Arc::new(MockClock::new(1000));
+        let (app, auth) = setup_test_app(clock, "127.0.0.1:8765".parse().unwrap());
+
+        {
+            let mut guard = auth.write().await;
+            guard.register_key_with_class(
+                "ro-key-123",
+                "auditor",
+                CapabilityClass::ReadOnlyInspection,
+                vec!["*".to_string()],
+                crate::capability_broker::SandboxPolicy::ReadConstrained,
+            );
+        }
+
+        // Call a mutating tool
+        let payload = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "mutate_system_state",
+                "arguments": {}
+            }
+        });
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/mcp")
+            .header("authorization", "Bearer ro-key-123")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(&payload).unwrap()))
+            .unwrap();
+
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::OK);
+
+        let bytes = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let json_resp: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+
+        assert!(json_resp.get("error").is_some());
+        let err_msg = json_resp["error"]["message"].as_str().unwrap();
+        assert!(
+            err_msg.contains("Insufficient capability class"),
+            "Expected capability class error, got: {}",
+            err_msg
+        );
+    }
+
+    #[tokio::test]
+    async fn test_http_scope_boundary_enforcement() {
+        let clock = Arc::new(MockClock::new(1000));
+        let (app, auth) = setup_test_app(clock, "127.0.0.1:8765".parse().unwrap());
+
+        {
+            let mut guard = auth.write().await;
+            guard.register_key_with_class(
+                "sec-key-456",
+                "sec-team",
+                CapabilityClass::Mutation,
+                vec!["security.*".to_string()],
+                crate::capability_broker::SandboxPolicy::FullPrivilege,
+            );
+        }
+
+        // 1. Tool in adjacent namespace without '.' separator must be rejected
+        let payload_evil = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "securityevil.audit",
+                "arguments": {}
+            }
+        });
+
+        let req_evil = Request::builder()
+            .method("POST")
+            .uri("/mcp")
+            .header("authorization", "Bearer sec-key-456")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(&payload_evil).unwrap()))
+            .unwrap();
+
+        let resp = app.clone().oneshot(req_evil).await.unwrap();
+        let bytes = axum::body::to_bytes(resp.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let json_resp: serde_json::Value = serde_json::from_slice(&bytes).unwrap();
+        assert!(json_resp.get("error").is_some());
+        assert!(
+            json_resp["error"]["message"]
+                .as_str()
+                .unwrap()
+                .contains("not granted by scopes")
+        );
+
+        // 2. Tool in exact matching prefix must not be rejected by scopes
+        let payload_valid = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "security.audit",
+                "arguments": {}
+            }
+        });
+
+        let req_valid = Request::builder()
+            .method("POST")
+            .uri("/mcp")
+            .header("authorization", "Bearer sec-key-456")
+            .header("content-type", "application/json")
+            .body(Body::from(serde_json::to_vec(&payload_valid).unwrap()))
+            .unwrap();
+
+        let resp_valid = app.oneshot(req_valid).await.unwrap();
+        let bytes_valid = axum::body::to_bytes(resp_valid.into_body(), 1024 * 1024)
+            .await
+            .unwrap();
+        let json_valid: serde_json::Value = serde_json::from_slice(&bytes_valid).unwrap();
+        if let Some(err) = json_valid.get("error") {
+            let msg = err["message"].as_str().unwrap_or_default();
+            assert!(
+                !msg.contains("not granted by scopes"),
+                "Got unexpected scope disallowed error: {}",
+                msg
+            );
+        }
+    }
+
+    #[tokio::test]
+    async fn test_http_expired_and_revoked_keys() {
+        let mock_clock = Arc::new(MockClock::new(1000));
+        let (app, auth) = setup_test_app(mock_clock.clone(), "127.0.0.1:8765".parse().unwrap());
+
+        {
+            let mut guard = auth.write().await;
+            guard.register_key_with_expiry(
+                "exp-key",
+                "alice",
+                CapabilityClass::Mutation,
+                vec!["*".to_string()],
+                crate::capability_broker::SandboxPolicy::FullPrivilege,
+                Some(5000),
+            );
+            guard.register_key_with_class(
+                "revoked-principal-key",
+                "bob",
+                CapabilityClass::Mutation,
+                vec!["*".to_string()],
+                crate::capability_broker::SandboxPolicy::FullPrivilege,
+            );
+            guard.revoke_principal("bob");
+        }
+
+        // 1. Expired key request at now=6000 returns 401
+        mock_clock.advance(5000);
+        let req_exp = Request::builder()
+            .method("POST")
+            .uri("/mcp")
+            .header("authorization", "Bearer exp-key")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#,
+            ))
+            .unwrap();
+
+        let resp_exp = app.clone().oneshot(req_exp).await.unwrap();
+        assert_eq!(resp_exp.status(), StatusCode::UNAUTHORIZED);
+
+        // 2. Revoked principal key returns 401
+        let req_rev = Request::builder()
+            .method("POST")
+            .uri("/mcp")
+            .header("authorization", "Bearer revoked-principal-key")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"jsonrpc":"2.0","id":2,"method":"tools/list"}"#,
+            ))
+            .unwrap();
+
+        let resp_rev = app.oneshot(req_rev).await.unwrap();
+        assert_eq!(resp_rev.status(), StatusCode::UNAUTHORIZED);
+    }
+
+    #[tokio::test]
+    async fn test_http_unauthenticated_non_loopback_fails_closed() {
+        let clock = Arc::new(MockClock::new(1000));
+        // Non-loopback bind
+        let (app, _) = setup_test_app(clock, "192.168.1.100:8765".parse().unwrap());
+
+        let req = Request::builder()
+            .method("POST")
+            .uri("/mcp")
+            .header("content-type", "application/json")
+            .body(Body::from(
+                r#"{"jsonrpc":"2.0","id":1,"method":"tools/list"}"#,
+            ))
+            .unwrap();
+
+        let resp = app.oneshot(req).await.unwrap();
+        assert_eq!(resp.status(), StatusCode::UNAUTHORIZED);
+    }
 }
