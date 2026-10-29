@@ -3,7 +3,7 @@
 //! Used for risk forecasting, metabolic prediction, uncertainty quantification, and empirical confidence bounds.
 
 use anyhow::Result;
-use rand::Rng;
+use rand::{Rng, RngExt};
 use std::cmp::Ordering;
 
 /// Safely compares two f64 values without panicking on NaN.
@@ -84,9 +84,9 @@ pub fn monte_carlo_simulate(
 
     for _ in 0..iterations {
         // Sample from normal distribution (Box-Muller transform)
-        let u1: f64 = rng.gen_range(1e-10..1.0);
-        let u2: f64 = rng.r#gen::<f64>();
-        let z = (-2.0 * u1.ln()).sqrt() * (2.0 * std::f64::consts::PI * u2).cos();
+        let u1: f64 = rng.random_range(1e-10..1.0);
+        let u2: f64 = rng.random::<f64>();
+        let z = (-2.0f64 * u1.ln()).sqrt() * (2.0f64 * std::f64::consts::PI * u2).cos();
         let sample = mean + std_dev * z;
         results.push(sample);
     }
@@ -120,7 +120,7 @@ pub fn bootstrap_resample(data: &[f64], num_resamples: usize, rng: &mut impl Rng
     for _ in 0..num_resamples {
         let mut sample_sum = 0.0;
         for _ in 0..n {
-            let idx = rng.gen_range(0..n);
+            let idx = rng.random_range(0..n);
             sample_sum += data[idx];
         }
         resampled_means.push(sample_sum / n as f64);
@@ -137,9 +137,9 @@ pub fn metropolis_hastings_step(
     rng: &mut impl Rng,
     log_likelihood: impl Fn(f64) -> f64,
 ) -> f64 {
-    let proposal = current + proposal_std * (rng.r#gen::<f64>() * 2.0 - 1.0);
+    let proposal = current + proposal_std * (rng.random::<f64>() * 2.0 - 1.0);
     let log_alpha = log_likelihood(proposal) - log_likelihood(current);
-    if rng.r#gen::<f64>() < log_alpha.exp() {
+    if rng.random::<f64>() < log_alpha.exp() {
         proposal
     } else {
         current
@@ -169,13 +169,13 @@ pub fn run_mcmc_chain(
     let thin = thinning.max(1);
 
     for step in 0..(burn_in + steps) {
-        let proposal = current + rng.gen_range(-proposal_std..proposal_std);
+        let proposal = current + rng.random_range(-proposal_std..proposal_std);
         let log_alpha = log_posterior(proposal) - log_posterior(current);
 
         let accepted = if log_alpha >= 0.0 {
             true
         } else {
-            rng.r#gen::<f64>() < log_alpha.exp()
+            rng.random::<f64>() < log_alpha.exp()
         };
 
         if accepted {

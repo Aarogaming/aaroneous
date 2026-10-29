@@ -273,9 +273,9 @@ impl CandlePersonaEngine {
                 return Ok(indexed_probs.first().map(|(idx, _)| *idx).unwrap_or(0));
             }
 
-            let mut rng = rand::thread_rng();
-            use rand::Rng;
-            let sample_val: f32 = rng.r#gen::<f32>() * sum_p;
+            use rand::RngExt;
+            let mut rng = rand::rng();
+            let sample_val: f32 = rng.random::<f32>() * sum_p;
             let mut acc = 0.0f32;
 
             for &(idx, p) in &indexed_probs {

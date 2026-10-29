@@ -39,7 +39,7 @@ impl PredictiveLoadGovernor {
     pub fn new(config: LoadGovernorConfig) -> Self {
         Self {
             config,
-            rng: rand::rngs::StdRng::from_entropy(),
+            rng: rand::rngs::StdRng::from_seed(rand::random()),
             historical_load: Vec::new(),
             max_history: 50,
         }

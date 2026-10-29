@@ -85,7 +85,7 @@ impl TaskRoutingEngine {
             reward_matrix: vec![vec![0.0; num_actions]; num_states],
             value_function: vec![0.0; num_states],
             policy: vec![0; num_states],
-            rng: rand::rngs::StdRng::from_entropy(),
+            rng: rand::rngs::StdRng::from_seed(rand::random()),
             learning_rate: 0.1,
             discount_factor: 0.9,
         };

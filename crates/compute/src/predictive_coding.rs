@@ -244,13 +244,14 @@ impl PredictiveController {
     /// Select action based on prediction errors.
     /// High prediction error -> explore more.
     pub fn select_action(&self, rng: &mut impl rand::Rng) -> usize {
+        use rand::RngExt;
         let total_error = self.state_predictor.mean_absolute_error()
             + self.reward_predictor.mean_absolute_error();
 
         // Boltzmann exploration based on prediction error
-        if rng.r#gen::<f64>() < self.exploration_rate * total_error {
+        if rng.random::<f64>() < self.exploration_rate * total_error {
             // Explore: random action
-            rng.gen_range(0..self.action_values.len())
+            rng.random_range(0..self.action_values.len())
         } else {
             // Exploit: best action
             self.action_values

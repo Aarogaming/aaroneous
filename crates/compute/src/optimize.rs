@@ -3,7 +3,7 @@
 //! Used for resource allocation, SAB evolution, hyperparameter tuning, and scheduling optimization.
 
 use anyhow::Result;
-use rand::Rng;
+use rand::{Rng, RngExt};
 
 /// Cooling schedule for Simulated Annealing.
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -36,9 +36,9 @@ pub fn anneal_step(
     rng: &mut impl Rng,
     objective: impl Fn(f64) -> f64,
 ) -> f64 {
-    let neighbor = current + rng.gen_range(-0.5..0.5);
+    let neighbor = current + rng.random_range(-0.5..0.5);
     let delta = objective(neighbor) - objective(current);
-    if delta > 0.0 || rng.r#gen::<f64>() < (-delta / temperature.max(1e-10)).exp() {
+    if delta > 0.0 || rng.random::<f64>() < (-delta / temperature.max(1e-10)).exp() {
         neighbor
     } else {
         current
@@ -62,12 +62,12 @@ pub fn simulated_anneal_minimize(
     let mut temp = initial_temp;
 
     for k in 0..iterations {
-        let neighbor = current + rng.gen_range(-step_radius..step_radius);
+        let neighbor = current + rng.random_range(-step_radius..step_radius);
         let neighbor_score = objective(neighbor);
         let delta = neighbor_score - current_score;
 
         // Minimization: accept if delta < 0 (better) or with Boltzmann probability if delta >= 0
-        if delta < 0.0 || rng.r#gen::<f64>() < (-delta / temp).exp() {
+        if delta < 0.0 || rng.random::<f64>() < (-delta / temp).exp() {
             current = neighbor;
             current_score = neighbor_score;
 
@@ -91,8 +91,8 @@ pub fn genetic_step(population: &[f64], rng: &mut impl Rng) -> Result<Vec<f64>> 
     // Tournament selection (size 2)
     let mut offspring = Vec::with_capacity(population.len());
     for _ in 0..population.len() {
-        let i1 = rng.gen_range(0..population.len());
-        let i2 = rng.gen_range(0..population.len());
+        let i1 = rng.random_range(0..population.len());
+        let i2 = rng.random_range(0..population.len());
         let parent = if population[i1] > population[i2] {
             i1
         } else {
@@ -102,9 +102,9 @@ pub fn genetic_step(population: &[f64], rng: &mut impl Rng) -> Result<Vec<f64>> 
     }
     // Crossover & mutation
     for i in 0..(offspring.len() / 2) {
-        if rng.r#gen::<f64>() < 0.7 {
+        if rng.random::<f64>() < 0.7 {
             let child = (offspring[i * 2] + offspring[i * 2 + 1]) / 2.0;
-            offspring[i * 2] = child + rng.gen_range(-0.1..0.1);
+            offspring[i * 2] = child + rng.random_range(-0.1..0.1);
         }
     }
     Ok(offspring)
@@ -163,7 +163,7 @@ mod tests {
 
     #[test]
     fn test_simulated_annealing() {
-        let mut rng = rand::thread_rng();
+        let mut rng = rand::rng();
         // Minimize f(x) = (x - 2)^2
         let f = |x: f64| (x - 2.0).powi(2);
         let (best, score) = simulated_anneal_minimize(

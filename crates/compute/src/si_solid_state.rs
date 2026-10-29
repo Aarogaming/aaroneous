@@ -69,8 +69,8 @@ pub struct DynamicAdaptationMatrix {
 impl DynamicAdaptationMatrix {
     /// Initializes a new Low-Rank Adaptation Matrix with near-zero initialization for B
     pub fn new(in_dim: usize, rank: usize, out_dim: usize) -> Self {
-        use rand::Rng;
-        let mut rng = rand::thread_rng();
+        use rand::RngExt;
+        let mut rng = rand::rng();
 
         let size_a = in_dim * rank;
         let size_b = rank * out_dim;
@@ -78,7 +78,7 @@ impl DynamicAdaptationMatrix {
         // Gaussian init for A
         let mut matrix_a = Vec::with_capacity(size_a);
         for _ in 0..size_a {
-            matrix_a.push(rng.gen_range(-0.02..0.02));
+            matrix_a.push(rng.random_range(-0.02..0.02));
         }
 
         // Zeros init for B so initial adapter output is 0.0 (exact identity with core model)

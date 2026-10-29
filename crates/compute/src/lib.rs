@@ -228,7 +228,7 @@ impl ComputeEngine {
     ) -> Self {
         Self {
             synapse,
-            rng: rand::rngs::StdRng::from_entropy(),
+            rng: rand::rngs::StdRng::from_seed(rand::random()),
             config,
         }
     }
