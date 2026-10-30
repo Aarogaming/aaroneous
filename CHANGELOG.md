@@ -6,6 +6,9 @@ All notable changes to Aaroneous.
 
 ## [Unreleased]
 
+### Core
+- **fix(compute,governance,orchestrator,adaptation_plane):** Updated RNG usage to `rand` 0.10 API (PR #93).
+
 ### Governance: Cratify Compliance v2 [2026-09-23]
 - **`docs/CRATIFY_SPEC.md` rewritten (owner-approved)**: uniform absolute rules replaced by a universal floor plus four compliance profiles (`kernel`, `control`, `presentation`, `tooling`) declared in `[package.metadata.cratify]`; compliance-distance dependency admission (`sled` rejected as a workspace dependency); a component graduation gate for externally sourced code; fault-tolerant operating modes (`Nominal` / `Degraded` / `SafeHold`) with deadband thresholds; and the invariant ratchet (per-crate violation baselines may only decrease).
 - **Floor additions**: ambient clock reads, self-started threads/tasks, and panics on runtime input are now banned in every profile (enforcement backlog in CRATIFY_SPEC section 7.1).
@@ -468,6 +471,9 @@ All notable changes to Aaroneous.
 ---
 
 ## [Unreleased]
+
+### Core
+- **fix(compute,governance,orchestrator,adaptation_plane):** Updated RNG usage to `rand` 0.10 API (PR #93).
 
 ### Phase IV - Production Readiness (70% Complete)
 

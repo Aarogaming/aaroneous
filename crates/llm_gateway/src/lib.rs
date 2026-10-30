@@ -14,11 +14,38 @@ pub mod types;
 
 pub use cache::{AstPrefixCacheManager, LLMCache};
 pub use mcp_gateway::McpGateway;
-pub use model_environment::{DetectedEnvironment, ModelEnvironment, ModelEnvironmentDetector};
+pub use model_environment::{
+    DetectedEnvironment, ModelEnvironment, ModelEnvironmentDetector, StrictModelEnvironmentConfig,
+    StrictModelEnvironmentError,
+};
 pub use model_loader::{ModelLoader, TOP_RECOMMENDED_MODELS};
 pub use model_registry::{ModelInfo, ModelRegistry, ModelType};
 pub use providers::{GGUFProvider, GeminiProvider, LLMProvider, MockProvider};
+use thiserror::Error;
 pub use types::*;
+
+/// Explicit missing-input and validation errors for strict controller LLM initialization.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum StrictLLMError {
+    #[error("Missing required model name")]
+    MissingModel,
+    #[error("Missing required GGUF model path")]
+    MissingModelPath,
+    #[error("GGUF model file not found at path: {0}")]
+    ModelPathNotFound(PathBuf),
+    #[error("Specified GGUF model path is a directory, expected a file: {0}")]
+    ModelPathIsDirectory(PathBuf),
+    #[error("Missing required local LLM endpoint URL")]
+    MissingEndpoint,
+    #[error("Invalid endpoint URL: {0}")]
+    InvalidEndpoint(String),
+    #[error("Missing required API key for provider {0:?}")]
+    MissingApiKey(ProviderType),
+    #[error("Missing required base URL for provider {0:?}")]
+    MissingBaseUrl(ProviderType),
+    #[error("Provider initialization failed: {0}")]
+    ProviderInitialization(String),
+}
 
 use anyhow::Result;
 use std::path::PathBuf;
@@ -32,6 +59,14 @@ pub struct LLMClient {
     ast_prefix_mgr: cache::AstPrefixCacheManager,
     rate_limiter: rate_limiter::RateLimiter,
     config: LLMConfig,
+}
+
+impl std::fmt::Debug for LLMClient {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LLMClient")
+            .field("config", &self.config)
+            .finish()
+    }
 }
 
 #[derive(Clone)]
@@ -101,6 +136,86 @@ impl Default for LLMConfig {
     }
 }
 
+impl LLMConfig {
+    /// Validates this configuration against the strict external-controller contract.
+    ///
+    /// Every input required for the selected provider MUST be explicitly provided.
+    /// Host-local fallbacks (e.g. `http://localhost:11434`, `mistral:latest`, `models/qwen2.5-1.5b.gguf`,
+    /// or `DEFAULT_GEMINI_BASE_URL`) will NOT be substituted.
+    pub fn validate_strict(&self) -> Result<(), StrictLLMError> {
+        match self.provider_type {
+            ProviderType::Local => {
+                let ep = self.local_endpoint.as_deref().unwrap_or("").trim();
+                if ep.is_empty() {
+                    return Err(StrictLLMError::MissingEndpoint);
+                }
+                if !ep.starts_with("http://") && !ep.starts_with("https://") {
+                    return Err(StrictLLMError::InvalidEndpoint(ep.to_string()));
+                }
+
+                let model = if !self.model_name.trim().is_empty() {
+                    &self.model_name
+                } else if let Some(ref m) = self.local_model {
+                    m.as_str()
+                } else {
+                    ""
+                };
+                if model.trim().is_empty() {
+                    return Err(StrictLLMError::MissingModel);
+                }
+            }
+            ProviderType::GGUF => {
+                let path = self
+                    .gguf_model_path
+                    .as_ref()
+                    .ok_or(StrictLLMError::MissingModelPath)?;
+                if path.as_os_str().is_empty() {
+                    return Err(StrictLLMError::MissingModelPath);
+                }
+                if !path.exists() {
+                    return Err(StrictLLMError::ModelPathNotFound(path.clone()));
+                }
+                if path.is_dir() {
+                    return Err(StrictLLMError::ModelPathIsDirectory(path.clone()));
+                }
+            }
+            ProviderType::OpenAI => {
+                let key = self.api_key.as_deref().unwrap_or("").trim();
+                if key.is_empty() {
+                    return Err(StrictLLMError::MissingApiKey(ProviderType::OpenAI));
+                }
+                if self.model_name.trim().is_empty() {
+                    return Err(StrictLLMError::MissingModel);
+                }
+            }
+            ProviderType::Gemini => {
+                let key = self.api_key.as_deref().unwrap_or("").trim();
+                if key.is_empty() {
+                    return Err(StrictLLMError::MissingApiKey(ProviderType::Gemini));
+                }
+                if self.model_name.trim().is_empty() {
+                    return Err(StrictLLMError::MissingModel);
+                }
+                let base_url = self
+                    .gemini_base_url
+                    .as_deref()
+                    .or(self.base_url.as_deref())
+                    .unwrap_or("")
+                    .trim();
+                if base_url.is_empty() {
+                    return Err(StrictLLMError::MissingBaseUrl(ProviderType::Gemini));
+                }
+            }
+            ProviderType::Mock => {
+                if self.model_name.trim().is_empty() {
+                    return Err(StrictLLMError::MissingModel);
+                }
+            }
+        }
+        Ok(())
+    }
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ProviderType {
     GGUF,   // Local GGUF models (llama.cpp) - RECOMMENDED
@@ -111,7 +226,108 @@ pub enum ProviderType {
 }
 
 impl LLMClient {
-    /// Create new LLM client with GGUF provider
+    /// Create new LLM client with strict explicit inputs for external controllers.
+    ///
+    /// Validates all parameters explicitly with ZERO ambient or host-local fallbacks.
+    /// Returns typed `StrictLLMError` on missing or invalid inputs.
+    pub async fn new_strict(config: LLMConfig) -> Result<Self, StrictLLMError> {
+        config.validate_strict()?;
+
+        let provider: Arc<dyn LLMProvider> = match config.provider_type {
+            ProviderType::OpenAI => {
+                let api_key = config
+                    .api_key
+                    .clone()
+                    .ok_or(StrictLLMError::MissingApiKey(ProviderType::OpenAI))?;
+                let model = config.model_name.clone();
+                Arc::new(
+                    providers::OpenAIProvider::new_explicit(
+                        api_key,
+                        model,
+                        config.base_url.clone(),
+                    )
+                    .await
+                    .map_err(|e| StrictLLMError::ProviderInitialization(e.to_string()))?,
+                )
+            }
+            ProviderType::Local => {
+                let endpoint = config
+                    .local_endpoint
+                    .clone()
+                    .ok_or(StrictLLMError::MissingEndpoint)?;
+                let model = if !config.model_name.trim().is_empty() {
+                    config.model_name.clone()
+                } else {
+                    config
+                        .local_model
+                        .clone()
+                        .ok_or(StrictLLMError::MissingModel)?
+                };
+                Arc::new(
+                    providers::LocalLLMProvider::new(endpoint, model)
+                        .await
+                        .map_err(|e| StrictLLMError::ProviderInitialization(e.to_string()))?,
+                )
+            }
+            ProviderType::Gemini => {
+                let api_key = config
+                    .api_key
+                    .clone()
+                    .ok_or(StrictLLMError::MissingApiKey(ProviderType::Gemini))?;
+                let base_url = config
+                    .gemini_base_url
+                    .clone()
+                    .or_else(|| config.base_url.clone())
+                    .ok_or(StrictLLMError::MissingBaseUrl(ProviderType::Gemini))?;
+                let model = config.model_name.clone();
+                let client = reqwest::Client::builder()
+                    .connect_timeout(std::time::Duration::from_secs(10))
+                    .timeout(std::time::Duration::from_secs(120))
+                    .build()
+                    .map_err(|e| StrictLLMError::ProviderInitialization(e.to_string()))?;
+                Arc::new(
+                    providers::GeminiProvider::new(api_key, base_url, model, client)
+                        .await
+                        .map_err(|e| StrictLLMError::ProviderInitialization(e.to_string()))?,
+                )
+            }
+            ProviderType::GGUF => {
+                let model_path = config
+                    .gguf_model_path
+                    .clone()
+                    .ok_or(StrictLLMError::MissingModelPath)?;
+                Arc::new(
+                    GGUFProvider::new(model_path, 2048, 8)
+                        .map_err(|e| StrictLLMError::ProviderInitialization(e.to_string()))?,
+                )
+            }
+            ProviderType::Mock => Arc::new(MockProvider),
+        };
+
+        let cache = cache::LLMCache::new(config.cache_ttl_secs);
+        let ast_prefix_mgr = cache::AstPrefixCacheManager::new();
+        let rate_limit = config.rate_limit.unwrap_or(0);
+        let rate_limiter = rate_limiter::RateLimiter::new(rate_limit);
+
+        Ok(Self {
+            provider,
+            cache,
+            ast_prefix_mgr,
+            rate_limiter,
+            config,
+        })
+    }
+
+    /// Legacy/bootstrap compatibility adapter for developer and interactive workflows.
+    ///
+    /// Applies host-local default fallbacks for unconfigured fields.
+    pub async fn bootstrap_adapter(config: LLMConfig) -> Result<Self> {
+        Self::new(config).await
+    }
+
+    /// Create new LLM client with fallback defaults (legacy constructor).
+    ///
+    /// External controllers MUST use [`Self::new_strict`] instead.
     pub async fn new(config: LLMConfig) -> Result<Self> {
         info!(
             "Initializing LLM client with provider: {:?}",
@@ -609,5 +825,164 @@ mod tests {
 
         // Prefix key must change because the AST structure changed
         assert_ne!(key1.hash, key3.hash);
+    }
+
+    #[tokio::test]
+    async fn test_strict_missing_model() {
+        let config = LLMConfig {
+            provider_type: ProviderType::Mock,
+            model_name: "".to_string(),
+            ..Default::default()
+        };
+        let err = LLMClient::new_strict(config).await.unwrap_err();
+        assert_eq!(err, StrictLLMError::MissingModel);
+    }
+
+    #[tokio::test]
+    async fn test_strict_missing_endpoint_local() {
+        let config = LLMConfig {
+            provider_type: ProviderType::Local,
+            model_name: "custom-model".to_string(),
+            local_endpoint: None,
+            ..Default::default()
+        };
+        let err = LLMClient::new_strict(config).await.unwrap_err();
+        assert_eq!(err, StrictLLMError::MissingEndpoint);
+    }
+
+    #[tokio::test]
+    async fn test_strict_invalid_endpoint_local() {
+        let config = LLMConfig {
+            provider_type: ProviderType::Local,
+            model_name: "custom-model".to_string(),
+            local_endpoint: Some("not-a-valid-url".to_string()),
+            ..Default::default()
+        };
+        let err = LLMClient::new_strict(config).await.unwrap_err();
+        assert_eq!(
+            err,
+            StrictLLMError::InvalidEndpoint("not-a-valid-url".to_string())
+        );
+    }
+
+    #[tokio::test]
+    async fn test_strict_missing_model_local() {
+        let config = LLMConfig {
+            provider_type: ProviderType::Local,
+            model_name: "   ".to_string(),
+            local_endpoint: Some("http://localhost:11434".to_string()),
+            local_model: None,
+            ..Default::default()
+        };
+        let err = LLMClient::new_strict(config).await.unwrap_err();
+        assert_eq!(err, StrictLLMError::MissingModel);
+    }
+
+    #[tokio::test]
+    async fn test_strict_missing_model_path_gguf() {
+        let config = LLMConfig {
+            provider_type: ProviderType::GGUF,
+            model_name: "qwen".to_string(),
+            gguf_model_path: None,
+            ..Default::default()
+        };
+        let err = LLMClient::new_strict(config).await.unwrap_err();
+        assert_eq!(err, StrictLLMError::MissingModelPath);
+    }
+
+    #[tokio::test]
+    async fn test_strict_model_path_not_found_gguf() {
+        let missing_path = PathBuf::from("Z:\\non_existent_model_file_98765.gguf");
+        let config = LLMConfig {
+            provider_type: ProviderType::GGUF,
+            model_name: "qwen".to_string(),
+            gguf_model_path: Some(missing_path.clone()),
+            ..Default::default()
+        };
+        let err = LLMClient::new_strict(config).await.unwrap_err();
+        assert_eq!(err, StrictLLMError::ModelPathNotFound(missing_path));
+    }
+
+    #[tokio::test]
+    async fn test_strict_model_path_is_dir_gguf() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir_path = temp.path().to_path_buf();
+        let config = LLMConfig {
+            provider_type: ProviderType::GGUF,
+            model_name: "qwen".to_string(),
+            gguf_model_path: Some(dir_path.clone()),
+            ..Default::default()
+        };
+        let err = LLMClient::new_strict(config).await.unwrap_err();
+        assert_eq!(err, StrictLLMError::ModelPathIsDirectory(dir_path));
+    }
+
+    #[tokio::test]
+    async fn test_strict_missing_api_key_openai() {
+        let config = LLMConfig {
+            provider_type: ProviderType::OpenAI,
+            model_name: "gpt-4".to_string(),
+            api_key: None,
+            ..Default::default()
+        };
+        let err = LLMClient::new_strict(config).await.unwrap_err();
+        assert_eq!(err, StrictLLMError::MissingApiKey(ProviderType::OpenAI));
+    }
+
+    #[tokio::test]
+    async fn test_strict_missing_base_url_gemini() {
+        let config = LLMConfig {
+            provider_type: ProviderType::Gemini,
+            model_name: "gemini-1.5-flash".to_string(),
+            api_key: Some("dummy-key".to_string()),
+            gemini_base_url: None,
+            base_url: None,
+            ..Default::default()
+        };
+        let err = LLMClient::new_strict(config).await.unwrap_err();
+        assert_eq!(err, StrictLLMError::MissingBaseUrl(ProviderType::Gemini));
+    }
+
+    #[tokio::test]
+    async fn test_strict_supplied_values_mock() {
+        let config = LLMConfig {
+            provider_type: ProviderType::Mock,
+            model_name: "test-mock-model".to_string(),
+            ..Default::default()
+        };
+        let client = LLMClient::new_strict(config).await;
+        assert!(client.is_ok());
+        let client = client.unwrap();
+        assert_eq!(client.config().model_name, "test-mock-model");
+    }
+
+    #[tokio::test]
+    async fn test_strict_supplied_values_local_config_validation() {
+        let config = LLMConfig {
+            provider_type: ProviderType::Local,
+            model_name: "llama3:latest".to_string(),
+            local_endpoint: Some("http://127.0.0.1:8000".to_string()),
+            ..Default::default()
+        };
+        assert!(config.validate_strict().is_ok());
+    }
+
+    #[tokio::test]
+    async fn test_strict_absence_of_ambient_fallback() {
+        // Default LLMConfig has provider_type GGUF and gguf_model_path None.
+        // On strict route this must fail rather than defaulting to models/qwen2.5-1.5b.gguf.
+        let default_config = LLMConfig::default();
+        let err = LLMClient::new_strict(default_config).await.unwrap_err();
+        assert_eq!(err, StrictLLMError::MissingModelPath);
+    }
+
+    #[tokio::test]
+    async fn test_bootstrap_adapter_retains_legacy_behavior() {
+        let config = LLMConfig {
+            provider_type: ProviderType::Mock,
+            ..Default::default()
+        };
+        let client = LLMClient::bootstrap_adapter(config).await;
+        assert!(client.is_ok());
     }
 }

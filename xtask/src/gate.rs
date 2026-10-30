@@ -1,16 +1,789 @@
 use anyhow::{Context, Result, bail};
+use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
+use std::path::{Path, PathBuf};
 use std::process::Command;
+use std::time::Instant;
 
 /// Single source of truth for gate 3.6's cargo-deny invocation, read by both
 /// `run()` and its drift test. `--all-features` is the one of these three
 /// arguments that also names a `security-audit.yml` `arguments:` value
 /// directly; `deny`/`check` are the subcommand, not something the workflow
 /// spells out.
-const GATE_36_DENY_ARGS: &[&str] = &["deny", "--all-features", "check"];
+pub const GATE_36_DENY_ARGS: &[&str] = &["deny", "--all-features", "check"];
 
 /// Gate 3.8's semver-checked package list — see `GATE_36_DENY_ARGS`.
-const GATE_38_SEMVER_PACKAGES: &[&str] = &["core-contracts", "sdk"];
+pub const GATE_38_SEMVER_PACKAGES: &[&str] = &["core-contracts", "sdk"];
 
+/// The verification tier hierarchy, ordered from lowest cost (zero compilation) to highest cost.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum VerificationTier {
+    /// Tier 0: Static Policy & Structural Preflight (Zero workspace compilation: encoding, format, stubs, AST audit, unwraps/deps ratchets, native audit).
+    Tier0Preflight = 0,
+    /// Tier 1: Supply Chain & Compatibility Audits (cargo-deny, cargo-audit, cargo-semver-checks).
+    Tier1SupplyChain = 1,
+    /// Tier 2: Compilation & Matrix Profiles (clippy, check workspace, cross targets, release binary, features).
+    Tier2Compilation = 2,
+    /// Tier 3: Execution & Test Suites (workspace test, emulator harness test).
+    Tier3Execution = 3,
+}
+
+impl VerificationTier {
+    pub fn parse(s: &str) -> Option<Self> {
+        match s.trim().to_lowercase().as_str() {
+            "0" | "tier0" | "tier0-preflight" | "tier0_preflight" | "preflight" | "fast" => {
+                Some(Self::Tier0Preflight)
+            }
+            "1" | "tier1" | "tier1-supply-chain" | "tier1_supply_chain" | "supply-chain"
+            | "supply_chain" | "audit" => Some(Self::Tier1SupplyChain),
+            "2" | "tier2" | "tier2-compilation" | "tier2_compilation" | "compilation"
+            | "compile" => Some(Self::Tier2Compilation),
+            "3" | "tier3" | "tier3-execution" | "tier3_execution" | "execution" | "test"
+            | "all" | "full" | "comprehensive" => Some(Self::Tier3Execution),
+            _ => None,
+        }
+    }
+
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Tier0Preflight => "tier0_preflight",
+            Self::Tier1SupplyChain => "tier1_supply_chain",
+            Self::Tier2Compilation => "tier2_compilation",
+            Self::Tier3Execution => "tier3_execution",
+        }
+    }
+}
+
+/// Execution configuration for tiered verification preflight.
+#[derive(Debug, Clone)]
+pub struct PreflightConfig {
+    pub workspace_root: PathBuf,
+    pub target_rev: String,
+    pub max_tier: VerificationTier,
+    pub json: bool,
+    pub stop_on_first_failure: bool,
+}
+
+/// A machine-readable execution report for verification preflight.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct GateReport {
+    pub schema_version: String,
+    pub target_rev: String,
+    pub workspace_root: String,
+    pub tier: String,
+    pub status: String,
+    pub total_duration_ms: u64,
+    pub checks: Vec<CheckResultRecord>,
+    pub failed_check: Option<String>,
+    pub fingerprint: String,
+}
+
+/// Record of an individual verification check result.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct CheckResultRecord {
+    pub id: String,
+    pub name: String,
+    pub tier: u8,
+    pub order: usize,
+    pub cost_level: String,
+    pub status: String,
+    pub duration_ms: u64,
+    pub message: Option<String>,
+}
+
+/// Definition of an executable verification check.
+pub struct GateCheckDefinition {
+    pub id: &'static str,
+    pub name: &'static str,
+    pub tier: VerificationTier,
+    pub order: usize,
+    pub cost_level: &'static str,
+    pub runner: fn(workspace_root: &Path) -> Result<()>,
+}
+
+/// Canonical table of all verification checks ordered by cost and tier.
+pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
+    // Tier 0: Static Policy & Structural Preflight (Zero workspace compilation: ~5-15s)
+    GateCheckDefinition {
+        id: "check-encoding",
+        name: "1. Text Encoding Contract",
+        tier: VerificationTier::Tier0Preflight,
+        order: 1,
+        cost_level: "low",
+        runner: |root| {
+            run_cmd_in(
+                root,
+                "cargo",
+                &["run", "-p", "ast_auditor", "--", "check-encoding"],
+            )
+        },
+    },
+    GateCheckDefinition {
+        id: "fmt",
+        name: "2. Formatting",
+        tier: VerificationTier::Tier0Preflight,
+        order: 2,
+        cost_level: "low",
+        runner: |root| run_cmd_in(root, "cargo", &["fmt", "--all", "--", "--check"]),
+    },
+    GateCheckDefinition {
+        id: "zero-stubs",
+        name: "7. Zero-Stub & Soundness Inspection",
+        tier: VerificationTier::Tier0Preflight,
+        order: 3,
+        cost_level: "low",
+        runner: |root| {
+            let status = Command::new("git")
+                .args([
+                    "grep",
+                    "-n",
+                    "-E",
+                    "(\\btodo!\\(|\\bunimplemented!\\(|unsafe impl.*Pod)",
+                    "--",
+                    "crates/",
+                    "core/",
+                    "dev/",
+                ])
+                .current_dir(root)
+                .status()
+                .context("Failed to execute git grep")?;
+            if status.success() {
+                bail!(
+                    "Found forbidden patterns (todo!, unimplemented!, or unsafe impl Pod). Exit code 0 means matches were found."
+                );
+            }
+            Ok(())
+        },
+    },
+    GateCheckDefinition {
+        id: "ast-audit",
+        name: "6. Structural & Semantic Invariant Audit",
+        tier: VerificationTier::Tier0Preflight,
+        order: 4,
+        cost_level: "low",
+        runner: |root| {
+            run_cmd_in(
+                root,
+                "cargo",
+                &[
+                    "run",
+                    "-p",
+                    "ast_auditor",
+                    "--",
+                    "audit",
+                    "core/",
+                    "crates/",
+                    "dev/emulator_harness/",
+                ],
+            )
+        },
+    },
+    GateCheckDefinition {
+        id: "check-unwraps",
+        name: "9. Unwrap/Panic Ratchet Check",
+        tier: VerificationTier::Tier0Preflight,
+        order: 5,
+        cost_level: "low",
+        runner: |root| crate::check_unwraps::run_with_root(root, &[]),
+    },
+    GateCheckDefinition {
+        id: "check-deps",
+        name: "9.5. Profile Dependency Direction Check",
+        tier: VerificationTier::Tier0Preflight,
+        order: 6,
+        cost_level: "low",
+        runner: |root| crate::check_deps::run_with_root(root),
+    },
+    GateCheckDefinition {
+        id: "check-native",
+        name: "3.5. Native Dependency Boundary Audit",
+        tier: VerificationTier::Tier0Preflight,
+        order: 7,
+        cost_level: "low",
+        runner: |root| crate::native_audit::run_with_root(root),
+    },
+    // Tier 1: Supply Chain & Compatibility Audits
+    GateCheckDefinition {
+        id: "cargo-deny",
+        name: "3.6. Dependency & License Policy (cargo-deny)",
+        tier: VerificationTier::Tier1SupplyChain,
+        order: 8,
+        cost_level: "medium",
+        runner: |root| {
+            require_tool(
+                "cargo-deny",
+                "cargo install cargo-deny --locked",
+                "https://github.com/EmbarkStudios/cargo-deny",
+            )?;
+            run_cmd_in(root, "cargo", GATE_36_DENY_ARGS)
+        },
+    },
+    GateCheckDefinition {
+        id: "cargo-audit",
+        name: "3.7. RUSTSEC Advisory Audit (cargo-audit)",
+        tier: VerificationTier::Tier1SupplyChain,
+        order: 9,
+        cost_level: "medium",
+        runner: |root| {
+            require_tool(
+                "cargo-audit",
+                "cargo install cargo-audit --locked",
+                "https://github.com/rustsec/rustsec",
+            )?;
+            run_cmd_in(root, "cargo", &["audit"])
+        },
+    },
+    GateCheckDefinition {
+        id: "cargo-semver",
+        name: "3.8. Semver Compatibility (core-contracts, sdk)",
+        tier: VerificationTier::Tier1SupplyChain,
+        order: 10,
+        cost_level: "medium",
+        runner: |root| {
+            require_tool(
+                "cargo-semver-checks",
+                "cargo install cargo-semver-checks --locked",
+                "https://github.com/obi1kenobi/cargo-semver-checks",
+            )?;
+            let baseline = semver_baseline_rev();
+            for pkg in GATE_38_SEMVER_PACKAGES {
+                run_cmd_in(
+                    root,
+                    "cargo",
+                    &[
+                        "semver-checks",
+                        "check-release",
+                        "-p",
+                        pkg,
+                        "--baseline-rev",
+                        &baseline,
+                    ],
+                )
+                .with_context(|| format!("Semver Compatibility ({pkg})"))?;
+            }
+            Ok(())
+        },
+    },
+    // Tier 2: Compilation & Matrix Profiles
+    GateCheckDefinition {
+        id: "clippy",
+        name: "3. Strict Clippy (workspace, all targets)",
+        tier: VerificationTier::Tier2Compilation,
+        order: 11,
+        cost_level: "high",
+        runner: |root| {
+            run_cmd_in(
+                root,
+                "cargo",
+                &[
+                    "clippy",
+                    "--workspace",
+                    "--all-targets",
+                    "--",
+                    "-D",
+                    "warnings",
+                ],
+            )
+        },
+    },
+    GateCheckDefinition {
+        id: "check-workspace",
+        name: "4. Full Workspace Compilation",
+        tier: VerificationTier::Tier2Compilation,
+        order: 12,
+        cost_level: "high",
+        runner: |root| run_cmd_in(root, "cargo", &["check", "--workspace", "--all-targets"]),
+    },
+    GateCheckDefinition {
+        id: "check-portable-core",
+        name: "4a. Portable Core Profile",
+        tier: VerificationTier::Tier2Compilation,
+        order: 13,
+        cost_level: "medium",
+        runner: |root| {
+            run_cmd_in(
+                root,
+                "cargo",
+                &["check", "-p", "scan_core", "--no-default-features"],
+            )
+        },
+    },
+    GateCheckDefinition {
+        id: "check-arm-core",
+        name: "4b. ARM Bare-Metal Core Profile",
+        tier: VerificationTier::Tier2Compilation,
+        order: 14,
+        cost_level: "medium",
+        runner: |root| {
+            run_cmd_in(
+                root,
+                "cargo",
+                &[
+                    "check",
+                    "-p",
+                    "scan_core",
+                    "--target",
+                    "thumbv7em-none-eabihf",
+                    "--no-default-features",
+                ],
+            )
+        },
+    },
+    GateCheckDefinition {
+        id: "check-wasm-core",
+        name: "4c. WebAssembly Core Profile",
+        tier: VerificationTier::Tier2Compilation,
+        order: 15,
+        cost_level: "medium",
+        runner: |root| {
+            run_cmd_in(
+                root,
+                "cargo",
+                &[
+                    "check",
+                    "-p",
+                    "scan_core",
+                    "--target",
+                    "wasm32-unknown-unknown",
+                    "--no-default-features",
+                ],
+            )
+        },
+    },
+    GateCheckDefinition {
+        id: "check-portable-contracts",
+        name: "4d. Portable Shared Contracts",
+        tier: VerificationTier::Tier2Compilation,
+        order: 16,
+        cost_level: "medium",
+        runner: |root| {
+            run_cmd_in(
+                root,
+                "cargo",
+                &["check", "-p", "core-contracts", "--no-default-features"],
+            )
+        },
+    },
+    GateCheckDefinition {
+        id: "check-arm-contracts",
+        name: "4e. ARM Bare-Metal Shared Contracts",
+        tier: VerificationTier::Tier2Compilation,
+        order: 17,
+        cost_level: "medium",
+        runner: |root| {
+            run_cmd_in(
+                root,
+                "cargo",
+                &[
+                    "check",
+                    "-p",
+                    "core-contracts",
+                    "--target",
+                    "thumbv7em-none-eabihf",
+                    "--no-default-features",
+                ],
+            )
+        },
+    },
+    GateCheckDefinition {
+        id: "check-wasm-contracts",
+        name: "4f. WebAssembly Shared Contracts",
+        tier: VerificationTier::Tier2Compilation,
+        order: 18,
+        cost_level: "medium",
+        runner: |root| {
+            run_cmd_in(
+                root,
+                "cargo",
+                &[
+                    "check",
+                    "-p",
+                    "core-contracts",
+                    "--target",
+                    "wasm32-unknown-unknown",
+                    "--no-default-features",
+                ],
+            )
+        },
+    },
+    GateCheckDefinition {
+        id: "check-release",
+        name: "10. Release Binary Check",
+        tier: VerificationTier::Tier2Compilation,
+        order: 19,
+        cost_level: "high",
+        runner: |root| {
+            run_cmd_in(
+                root,
+                "cargo",
+                &[
+                    "check",
+                    "--release",
+                    "--bin",
+                    "aaroneous",
+                    "--bin",
+                    "hypervisor",
+                ],
+            )
+        },
+    },
+    GateCheckDefinition {
+        id: "check-features",
+        name: "11. Optional Runtime Features (compile only)",
+        tier: VerificationTier::Tier2Compilation,
+        order: 20,
+        cost_level: "high",
+        runner: |root| {
+            run_cmd_in(
+                root,
+                "cargo",
+                &[
+                    "check",
+                    "-p",
+                    "hypervisor",
+                    "--all-targets",
+                    "--features",
+                    "llama-gguf,gpu-metrics,fleet,testing,standalone",
+                ],
+            )
+        },
+    },
+    GateCheckDefinition {
+        id: "check-iroh",
+        name: "12. Iroh Compatibility Feature (compile only)",
+        tier: VerificationTier::Tier2Compilation,
+        order: 21,
+        cost_level: "medium",
+        runner: |root| {
+            run_cmd_in(
+                root,
+                "cargo",
+                &[
+                    "check",
+                    "-p",
+                    "hypervisor",
+                    "--all-targets",
+                    "--features",
+                    "p2p-iroh",
+                ],
+            )
+        },
+    },
+    // Tier 3: Execution & Test Determinism
+    GateCheckDefinition {
+        id: "test-workspace",
+        name: "5. Workspace Test Suite",
+        tier: VerificationTier::Tier3Execution,
+        order: 22,
+        cost_level: "high",
+        runner: |root| run_cmd_in(root, "cargo", &["test", "--workspace"]),
+    },
+    GateCheckDefinition {
+        id: "test-emulator",
+        name: "8. Golden Dogfooding Harness Verification",
+        tier: VerificationTier::Tier3Execution,
+        order: 23,
+        cost_level: "medium",
+        runner: |root| run_cmd_in(root, "cargo", &["test", "-p", "emulator_harness"]),
+    },
+];
+
+/// Validates that an explicit workspace root path exists, is a directory,
+/// and contains a Cargo.toml declaring [workspace].
+pub fn validate_workspace_root(root: &Path) -> Result<PathBuf> {
+    if !root.exists() {
+        bail!("Explicit workspace root does not exist: {}", root.display());
+    }
+    if !root.is_dir() {
+        bail!(
+            "Explicit workspace root is not a directory: {}",
+            root.display()
+        );
+    }
+    let manifest_path = root.join("Cargo.toml");
+    if !manifest_path.exists() {
+        bail!(
+            "Explicit workspace root has no Cargo.toml: {}",
+            root.display()
+        );
+    }
+    let manifest_content = std::fs::read_to_string(&manifest_path)
+        .with_context(|| format!("Reading {}", manifest_path.display()))?;
+    if !manifest_content.contains("[workspace]") {
+        bail!(
+            "Explicit workspace root Cargo.toml does not declare [workspace]: {}",
+            manifest_path.display()
+        );
+    }
+    let canon = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+    let s = canon.to_string_lossy();
+    let normalized = if let Some(stripped) = s.strip_prefix(r"\\?\") {
+        PathBuf::from(stripped)
+    } else {
+        canon
+    };
+    Ok(normalized)
+}
+
+/// Validates that an explicit target git revision resolves to an existing git object.
+pub fn validate_target_rev(root: &Path, target_rev: &str) -> Result<String> {
+    if target_rev.trim().is_empty() {
+        bail!("Explicit target revision cannot be empty");
+    }
+    let output = Command::new("git")
+        .args(["rev-parse", "--verify", target_rev])
+        .current_dir(root)
+        .output()
+        .context("Failed to spawn git rev-parse")?;
+    if !output.status.success() {
+        bail!(
+            "Explicit target revision '{}' does not resolve in workspace git repository: {}",
+            target_rev,
+            String::from_utf8_lossy(&output.stderr).trim()
+        );
+    }
+    let resolved = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    Ok(resolved)
+}
+
+/// Calculate a deterministic SHA-256 fingerprint for a GateReport.
+pub fn compute_gate_fingerprint(
+    schema_version: &str,
+    target_rev: &str,
+    workspace_root: &str,
+    tier: &str,
+    status: &str,
+    checks: &[CheckResultRecord],
+) -> String {
+    let mut hasher = Sha256::new();
+    hasher.update(schema_version.as_bytes());
+    hasher.update(b"|");
+    hasher.update(target_rev.as_bytes());
+    hasher.update(b"|");
+    hasher.update(workspace_root.as_bytes());
+    hasher.update(b"|");
+    hasher.update(tier.as_bytes());
+    hasher.update(b"|");
+    hasher.update(status.as_bytes());
+    for c in checks {
+        hasher.update(b";");
+        hasher.update(c.id.as_bytes());
+        hasher.update(b":");
+        hasher.update(c.status.as_bytes());
+        hasher.update(b":");
+        hasher.update(c.tier.to_string().as_bytes());
+        hasher.update(b":");
+        hasher.update(c.cost_level.as_bytes());
+        hasher.update(b":");
+        hasher.update(c.duration_ms.to_string().as_bytes());
+    }
+    hex::encode(hasher.finalize())
+}
+
+/// Execute a list of checks deterministically against the workspace root.
+pub fn execute_checks(
+    checks: &[&GateCheckDefinition],
+    root: &Path,
+    stop_on_first_failure: bool,
+) -> (Vec<CheckResultRecord>, bool, Option<String>) {
+    let mut records = Vec::new();
+    let mut failed_check = None;
+    let mut overall_success = true;
+
+    for check in checks {
+        let check_start = Instant::now();
+        let result = (check.runner)(root);
+        let duration_ms = check_start.elapsed().as_millis() as u64;
+
+        match result {
+            Ok(()) => {
+                records.push(CheckResultRecord {
+                    id: check.id.to_string(),
+                    name: check.name.to_string(),
+                    tier: check.tier as u8,
+                    order: check.order,
+                    cost_level: check.cost_level.to_string(),
+                    status: "passed".to_string(),
+                    duration_ms,
+                    message: None,
+                });
+            }
+            Err(e) => {
+                overall_success = false;
+                let msg = format!("{:#}", e);
+                records.push(CheckResultRecord {
+                    id: check.id.to_string(),
+                    name: check.name.to_string(),
+                    tier: check.tier as u8,
+                    order: check.order,
+                    cost_level: check.cost_level.to_string(),
+                    status: "failed".to_string(),
+                    duration_ms,
+                    message: Some(msg.clone()),
+                });
+                failed_check = Some(check.id.to_string());
+
+                if stop_on_first_failure {
+                    break;
+                }
+            }
+        }
+    }
+
+    (records, overall_success, failed_check)
+}
+
+/// Run tiered verification preflight according to the provided configuration.
+pub fn run_preflight(config: &PreflightConfig) -> Result<GateReport> {
+    let validated_root = validate_workspace_root(&config.workspace_root)?;
+    let validated_rev = validate_target_rev(&validated_root, &config.target_rev)?;
+
+    let tier_name = config.max_tier.as_str();
+    let start_time = Instant::now();
+
+    let mut checks_to_run: Vec<&GateCheckDefinition> = ALL_GATE_CHECKS
+        .iter()
+        .filter(|c| c.tier <= config.max_tier)
+        .collect();
+    checks_to_run.sort_by_key(|c| c.order);
+
+    let (records, overall_success, failed_check) = execute_checks(
+        &checks_to_run,
+        &validated_root,
+        config.stop_on_first_failure,
+    );
+
+    let total_duration_ms = start_time.elapsed().as_millis() as u64;
+    let status_str = if overall_success { "passed" } else { "failed" };
+
+    let fingerprint = compute_gate_fingerprint(
+        "1.0.0",
+        &validated_rev,
+        &validated_root.display().to_string(),
+        tier_name,
+        status_str,
+        &records,
+    );
+
+    let report = GateReport {
+        schema_version: "1.0.0".to_string(),
+        target_rev: validated_rev,
+        workspace_root: validated_root.display().to_string(),
+        tier: tier_name.to_string(),
+        status: status_str.to_string(),
+        total_duration_ms,
+        checks: records,
+        failed_check,
+        fingerprint,
+    };
+
+    Ok(report)
+}
+
+/// CLI entrypoint for `cargo xtask preflight`.
+pub fn preflight_cli(args: &[String]) -> Result<()> {
+    let mut root_path = PathBuf::from(".");
+    let mut target_rev = "HEAD".to_string();
+    let mut tier = VerificationTier::Tier0Preflight;
+    let mut json = false;
+    let mut stop_on_first_failure = true;
+
+    let mut i = 0;
+    while i < args.len() {
+        match args[i].as_str() {
+            "--workspace-root" => {
+                i += 1;
+                if i >= args.len() {
+                    bail!("--workspace-root requires an argument");
+                }
+                root_path = PathBuf::from(&args[i]);
+            }
+            "--target-rev" => {
+                i += 1;
+                if i >= args.len() {
+                    bail!("--target-rev requires an argument");
+                }
+                target_rev = args[i].clone();
+            }
+            "--tier" => {
+                i += 1;
+                if i >= args.len() {
+                    bail!("--tier requires an argument (tier0, tier1, tier2, tier3)");
+                }
+                tier = VerificationTier::parse(&args[i])
+                    .with_context(|| format!("Unknown verification tier: '{}'", args[i]))?;
+            }
+            "--json" => {
+                json = true;
+            }
+            "--stop-on-first-failure" => {
+                stop_on_first_failure = true;
+            }
+            "--continue-on-failure" => {
+                stop_on_first_failure = false;
+            }
+            other => {
+                bail!(
+                    "Unknown argument to preflight: '{other}'. Usage: cargo xtask preflight [--workspace-root <PATH>] [--target-rev <REV>] [--tier <TIER>] [--json]"
+                );
+            }
+        }
+        i += 1;
+    }
+
+    let config = PreflightConfig {
+        workspace_root: root_path,
+        target_rev,
+        max_tier: tier,
+        json,
+        stop_on_first_failure,
+    };
+
+    let report = run_preflight(&config)?;
+
+    if config.json {
+        println!("{}", serde_json::to_string_pretty(&report)?);
+    } else {
+        println!("=== Aaroneous Verification Preflight ({}) ===", report.tier);
+        println!("Workspace Root: {}", report.workspace_root);
+        println!("Target Rev:     {}", report.target_rev);
+        println!("Status:         {}", report.status.to_uppercase());
+        println!("-------------------------------------------------------------");
+        for (idx, check) in report.checks.iter().enumerate() {
+            let symbol = if check.status == "passed" {
+                "OK"
+            } else {
+                "FAIL"
+            };
+            println!(
+                "[{}/{}] {:<18} {:<45} [{} in {}ms]",
+                idx + 1,
+                report.checks.len(),
+                check.id,
+                check.name,
+                symbol,
+                check.duration_ms
+            );
+            if let Some(ref msg) = check.message {
+                eprintln!("    Error: {msg}");
+            }
+        }
+        println!("-------------------------------------------------------------");
+        println!(
+            "Total duration: {}ms | Fingerprint: {}",
+            report.total_duration_ms, report.fingerprint
+        );
+    }
+
+    if report.status != "passed" {
+        bail!("Preflight verification failed.");
+    }
+
+    Ok(())
+}
+
+/// Canonical entrypoint for `cargo xtask gate` (full sequential CI verification).
 pub fn run() -> Result<()> {
     println!("=== 1. Text Encoding Contract ===");
     crate::encoding::run().context("Gate 1 failed: Text Encoding Contract")?;
@@ -246,8 +1019,16 @@ pub fn run() -> Result<()> {
 }
 
 fn run_cmd(program: &str, args: &[&str]) -> Result<()> {
-    let status = Command::new(program)
-        .args(args)
+    run_cmd_in(Path::new("."), program, args)
+}
+
+fn run_cmd_in(dir: &Path, program: &str, args: &[&str]) -> Result<()> {
+    let mut cmd = Command::new(program);
+    cmd.args(args);
+    if !dir.as_os_str().is_empty() && dir != Path::new(".") {
+        cmd.current_dir(dir);
+    }
+    let status = cmd
         .status()
         .with_context(|| format!("Failed to spawn {}", program))?;
 
@@ -264,9 +1045,7 @@ fn run_cmd(program: &str, args: &[&str]) -> Result<()> {
 
 /// Fails with install instructions if `binary` isn't on `PATH`, rather than
 /// silently skipping the gate or paying an unconditional multi-minute
-/// `cargo install` on every run. These three tools (cargo-deny, cargo-audit,
-/// cargo-semver-checks) are one-time local setup, same as clippy/rustfmt
-/// components are assumed present already.
+/// `cargo install` on every run.
 fn require_tool(binary: &str, install_cmd: &str, project_url: &str) -> Result<()> {
     match Command::new(binary).arg("--version").status() {
         Ok(_) => Ok(()),
@@ -280,24 +1059,17 @@ fn require_tool(binary: &str, install_cmd: &str, project_url: &str) -> Result<()
 }
 
 /// Baseline git revision for `cargo-semver-checks`, matching what
-/// `.github/workflows/semver-checks.yml` resolves on a pull-request event
-/// (diff against the PR's base branch). A local run assumes the standard
-/// `origin/main` remote/branch naming; fetch `main` first if this doesn't
-/// resolve.
+/// `.github/workflows/semver-checks.yml` resolves on a pull-request event.
 fn semver_baseline_rev() -> String {
     "origin/main".to_string()
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{GATE_36_DENY_ARGS, GATE_38_SEMVER_PACKAGES, require_tool};
+    use super::*;
     use std::fs;
     use std::path::Path;
 
-    /// A binary that cannot plausibly exist on `PATH` must fail with
-    /// install instructions, not a generic spawn error — this is the error
-    /// path a contributor missing one of the three security/semver tools
-    /// actually hits.
     #[test]
     fn require_tool_reports_missing_binary_with_install_instructions() {
         let err = require_tool(
@@ -311,25 +1083,11 @@ mod tests {
         assert!(message.contains("https://example.invalid"));
     }
 
-    /// A binary that does exist (here, `cargo` itself, always present under
-    /// the test harness) must pass through without error.
     #[test]
     fn require_tool_accepts_present_binary() {
         require_tool("cargo", "unused", "unused").expect("cargo must be found on PATH");
     }
 
-    /// The `run: cargo ...` lines `.github/workflows/ci.yml`'s `check-and-test`
-    /// job declares directly, outside its "Canonical repository verification"
-    /// step (`bash scripts/agent_check.sh`) — that step *is* `gate::run()`, so
-    /// its own internal gates (compile check, workspace test, ast_auditor
-    /// audit, forbidden-pattern scan, emulator_harness) are gate.rs's own
-    /// pre-existing definition, not something mirrored from literal ci.yml
-    /// text. This list exists so the remaining, separately-declared CI
-    /// commands staying covered by a gate is checked by a test instead of
-    /// kept true by hand — see queue item M18 in the private operations
-    /// workspace, opened after a deprecation-migration commit (M7) passed
-    /// every existing local gate but broke CI's "Strict Clippy" step, which
-    /// no local gate ran at the time.
     const GATE_COMMANDS: &[&str] = &[
         "cargo run -p xtask -- check-encoding",
         "cargo fmt --all -- --check",
@@ -358,23 +1116,17 @@ mod tests {
             .unwrap_or_else(|e| panic!("failed to read {}: {}", path.display(), e))
     }
 
-    /// Catches gate.rs drifting stale: a command this list claims CI runs,
-    /// but ci.yml no longer contains verbatim.
     #[test]
     fn gate_commands_are_present_in_ci_workflow() {
         let ci = ci_workflow_text();
         for cmd in GATE_COMMANDS {
             assert!(
                 ci.contains(cmd),
-                "gate.rs expects CI to run `{cmd}`, but that exact command string is no \
-                 longer in ci.yml. Either ci.yml changed (update GATE_COMMANDS and \
-                 gate::run() to match) or this list has a stale entry."
+                "gate.rs expects CI to run `{cmd}`, but that exact command string is no longer in ci.yml."
             );
         }
     }
 
-    /// Catches ci.yml drifting ahead: a `cargo ...` verification command CI
-    /// runs that no local gate covers yet.
     #[test]
     fn ci_workflow_verification_commands_are_all_covered_by_a_gate() {
         let ci = ci_workflow_text();
@@ -382,76 +1134,27 @@ mod tests {
             let Some(cmd) = line.trim().strip_prefix("run: ") else {
                 continue;
             };
-            // Only single-line `run: cargo ...` steps are gate.rs's concern —
-            // "run: bash scripts/agent_check.sh" *is* gate.rs, and the
-            // multi-line `run: |` shell/PowerShell blocks are environment
-            // setup, not verification commands.
             if !cmd.starts_with("cargo ") {
                 continue;
             }
             assert!(
                 GATE_COMMANDS.contains(&cmd),
-                "ci.yml runs `{cmd}` but no gate in xtask/src/gate.rs::run() covers it — \
-                 a CI check was added or changed without a matching local gate. Add it to \
-                 both gate::run() and GATE_COMMANDS."
+                "ci.yml runs `{cmd}` but no gate in xtask/src/gate.rs covers it."
             );
         }
     }
 
-    /// `security-audit.yml` and `semver-checks.yml` run cargo-deny,
-    /// cargo-audit and cargo-semver-checks via dedicated GitHub Actions
-    /// (`EmbarkStudios/cargo-deny-action`, `rustsec/audit-check`,
-    /// `taiki-e/install-action@cargo-semver-checks` + `cargo semver-checks
-    /// check-release`), not a literal `run: cargo ...` line — so they can't
-    /// be checked by the `GATE_COMMANDS`/ci.yml machinery above.
-    ///
-    /// This is their drift guard, and it checks both directions:
-    /// `assert_eq!` first pins `GATE_36_DENY_ARGS`/`GATE_38_SEMVER_PACKAGES`
-    /// to the exact values this test also checks the workflow files
-    /// against, so changing either constant in `run()` (e.g. dropping
-    /// `--all-features`, or removing `sdk` from the semver-checked package
-    /// list) fails this test immediately, forcing a deliberate update here
-    /// alongside confirming the workflow file still matches — rather than
-    /// deriving the workflow-file assertions from the constants directly
-    /// (e.g. `.filter(|a| a.starts_with("--"))`), which would vacuously
-    /// pass if the constant lost the flag entirely instead of catching it.
-    /// An earlier version of this test held its own separately hand-typed
-    /// literals with no link back to `run()`'s real arguments at all, which
-    /// caught the workflow changing out from under the gate but not the
-    /// reverse — a review caught this: see the exchange on
-    /// Aarogaming/aaroneous#89, 2026-10-03. The action names
-    /// (`EmbarkStudios/cargo-deny-action`, `rustsec/audit-check`) have no
-    /// equivalent in `run()` at all, since `run()` calls the CLIs directly
-    /// rather than through an Action, so those two stay literal checks of
-    /// the workflow's own identity.
-    ///
-    /// **Known residual gaps, flagged in the same review** (deliberately
-    /// not closed here — closing them for real means parsing the workflow
-    /// YAML structurally instead of substring-matching its raw text, which
-    /// is more than this fix needs): this test does not cover
-    /// `semver_baseline_rev()`'s `--baseline-rev` value at all (CI's own
-    /// `semver-checks.yml` resolves its baseline differently per event —
-    /// PR base ref vs. pre-push commit — and nothing here checks that
-    /// `run()`'s hardcoded `"origin/main"` stays a reasonable local analog
-    /// of that), and a plain `.contains()` check is satisfied by a
-    /// commented-out line or an unrelated line that happens to contain the
-    /// same substring just as readily as a real, active one. Treat this
-    /// test as a guard against the four concrete markers it names drifting
-    /// silently, not as proof the local gate and these two CI workflows are
-    /// structurally equivalent.
     #[test]
     fn security_and_semver_workflows_match_their_local_gates() {
         assert_eq!(
             GATE_36_DENY_ARGS,
             &["deny", "--all-features", "check"],
-            "GATE_36_DENY_ARGS changed in gate.rs::run() — update this test's expected value \
-             AND confirm security-audit.yml's cargo-deny-action arguments still match."
+            "GATE_36_DENY_ARGS changed"
         );
         assert_eq!(
             GATE_38_SEMVER_PACKAGES,
             &["core-contracts", "sdk"],
-            "GATE_38_SEMVER_PACKAGES changed in gate.rs::run() — update this test's expected \
-             value AND confirm semver-checks.yml still checks the same package set."
+            "GATE_38_SEMVER_PACKAGES changed"
         );
 
         let manifest_dir = env!("CARGO_MANIFEST_DIR");
@@ -462,31 +1165,235 @@ mod tests {
 
         let security_audit = fs::read_to_string(workflows.join("security-audit.yml"))
             .expect("failed to read security-audit.yml");
-        assert!(
-            security_audit.contains("EmbarkStudios/cargo-deny-action"),
-            "security-audit.yml no longer uses EmbarkStudios/cargo-deny-action — gate 3.6 \
-             (`cargo deny check`) in gate.rs::run() may no longer match what CI runs."
-        );
-        assert!(
-            security_audit.contains("--all-features"),
-            "security-audit.yml's cargo-deny arguments changed — update GATE_36_DENY_ARGS in \
-             gate.rs to pass the same arguments."
-        );
-        assert!(
-            security_audit.contains("rustsec/audit-check"),
-            "security-audit.yml no longer uses rustsec/audit-check — gate 3.7 (`cargo audit`) \
-             in gate.rs::run() may no longer match what CI runs."
-        );
+        assert!(security_audit.contains("EmbarkStudios/cargo-deny-action"));
+        assert!(security_audit.contains("--all-features"));
+        assert!(security_audit.contains("rustsec/audit-check"));
 
         let semver_checks = fs::read_to_string(workflows.join("semver-checks.yml"))
             .expect("failed to read semver-checks.yml");
         for pkg in GATE_38_SEMVER_PACKAGES {
             let needle = format!("-p {pkg}");
+            assert!(semver_checks.contains(&needle));
+        }
+    }
+
+    #[test]
+    fn test_tier_ordering_and_strictly_increasing_sequence() {
+        // Assert all checks in ALL_GATE_CHECKS are ordered monotonically by tier and order
+        for window in ALL_GATE_CHECKS.windows(2) {
+            let a = &window[0];
+            let b = &window[1];
             assert!(
-                semver_checks.contains(&needle),
-                "semver-checks.yml no longer checks `{pkg}` — update GATE_38_SEMVER_PACKAGES \
-                 in gate.rs or this workflow so they match."
+                a.tier <= b.tier,
+                "Tier violation: {} ({:?}) placed after {} ({:?})",
+                b.name,
+                b.tier,
+                a.name,
+                a.tier
+            );
+            assert!(
+                a.order < b.order,
+                "Order violation: {} ({}) must be strictly less than {} ({})",
+                a.name,
+                a.order,
+                b.name,
+                b.order
             );
         }
+
+        // Check Tier 0 specifically contains only zero-workspace-compilation checks
+        let tier0_checks: Vec<_> = ALL_GATE_CHECKS
+            .iter()
+            .filter(|c| c.tier == VerificationTier::Tier0Preflight)
+            .collect();
+        assert_eq!(tier0_checks.len(), 7);
+        assert_eq!(tier0_checks[0].id, "check-encoding");
+        assert_eq!(tier0_checks[1].id, "fmt");
+        assert_eq!(tier0_checks[2].id, "zero-stubs");
+        assert_eq!(tier0_checks[3].id, "ast-audit");
+        assert_eq!(tier0_checks[4].id, "check-unwraps");
+        assert_eq!(tier0_checks[5].id, "check-deps");
+        assert_eq!(tier0_checks[6].id, "check-native");
+    }
+
+    #[test]
+    fn test_tier_parsing_from_strings() {
+        assert_eq!(
+            VerificationTier::parse("tier0"),
+            Some(VerificationTier::Tier0Preflight)
+        );
+        assert_eq!(
+            VerificationTier::parse("preflight"),
+            Some(VerificationTier::Tier0Preflight)
+        );
+        assert_eq!(
+            VerificationTier::parse("tier1"),
+            Some(VerificationTier::Tier1SupplyChain)
+        );
+        assert_eq!(
+            VerificationTier::parse("tier2"),
+            Some(VerificationTier::Tier2Compilation)
+        );
+        assert_eq!(
+            VerificationTier::parse("tier3"),
+            Some(VerificationTier::Tier3Execution)
+        );
+        assert_eq!(
+            VerificationTier::parse("all"),
+            Some(VerificationTier::Tier3Execution)
+        );
+        assert_eq!(VerificationTier::parse("unknown_nonexistent_tier"), None);
+    }
+
+    #[test]
+    fn test_explicit_workspace_root_validation() {
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let valid_root = manifest_dir.parent().unwrap();
+        assert!(validate_workspace_root(valid_root).is_ok());
+
+        // Non-existent path
+        let invalid_path = valid_root.join("nonexistent_directory_abc123");
+        assert!(validate_workspace_root(&invalid_path).is_err());
+
+        // Regular file instead of directory
+        let file_path = manifest_dir.join("Cargo.toml");
+        assert!(validate_workspace_root(&file_path).is_err());
+    }
+
+    #[test]
+    fn test_explicit_target_rev_validation() {
+        let manifest_dir = Path::new(env!("CARGO_MANIFEST_DIR"));
+        let root = manifest_dir.parent().unwrap();
+
+        // Valid revisions
+        assert!(validate_target_rev(root, "HEAD").is_ok());
+
+        // Empty revision
+        assert!(validate_target_rev(root, "   ").is_err());
+
+        // Non-existent revision
+        assert!(validate_target_rev(root, "definitely_not_a_valid_git_sha_9999").is_err());
+    }
+
+    #[test]
+    fn test_gate_report_serialization_and_deterministic_fingerprint() {
+        let checks = vec![
+            CheckResultRecord {
+                id: "check-encoding".to_string(),
+                name: "1. Text Encoding Contract".to_string(),
+                tier: 0,
+                order: 1,
+                cost_level: "low".to_string(),
+                status: "passed".to_string(),
+                duration_ms: 15,
+                message: None,
+            },
+            CheckResultRecord {
+                id: "fmt".to_string(),
+                name: "2. Formatting".to_string(),
+                tier: 0,
+                order: 2,
+                cost_level: "low".to_string(),
+                status: "passed".to_string(),
+                duration_ms: 42,
+                message: None,
+            },
+        ];
+
+        let fp1 = compute_gate_fingerprint(
+            "1.0.0",
+            "abc1234",
+            "/workspace/aaroneous",
+            "tier0_preflight",
+            "passed",
+            &checks,
+        );
+        let fp2 = compute_gate_fingerprint(
+            "1.0.0",
+            "abc1234",
+            "/workspace/aaroneous",
+            "tier0_preflight",
+            "passed",
+            &checks,
+        );
+        assert_eq!(fp1, fp2);
+        assert_eq!(fp1.len(), 64); // SHA-256 hex string
+
+        let report = GateReport {
+            schema_version: "1.0.0".to_string(),
+            target_rev: "abc1234".to_string(),
+            workspace_root: "/workspace/aaroneous".to_string(),
+            tier: "tier0_preflight".to_string(),
+            status: "passed".to_string(),
+            total_duration_ms: 57,
+            checks,
+            failed_check: None,
+            fingerprint: fp1,
+        };
+
+        let json_str = serde_json::to_string(&report).unwrap();
+        let deserialized: GateReport = serde_json::from_str(&json_str).unwrap();
+        assert_eq!(report, deserialized);
+    }
+
+    #[test]
+    fn test_deterministic_stop_on_first_failure() {
+        use std::sync::atomic::{AtomicBool, Ordering};
+        static THIRD_CHECK_RAN: AtomicBool = AtomicBool::new(false);
+
+        let check1 = GateCheckDefinition {
+            id: "test-check-1",
+            name: "Passing Check 1",
+            tier: VerificationTier::Tier0Preflight,
+            order: 1,
+            cost_level: "low",
+            runner: |_| Ok(()),
+        };
+        let check2 = GateCheckDefinition {
+            id: "test-check-2",
+            name: "Failing Check 2",
+            tier: VerificationTier::Tier0Preflight,
+            order: 2,
+            cost_level: "low",
+            runner: |_| bail!("Simulated failure in check 2"),
+        };
+        let check3 = GateCheckDefinition {
+            id: "test-check-3",
+            name: "Never Called Check 3",
+            tier: VerificationTier::Tier0Preflight,
+            order: 3,
+            cost_level: "low",
+            runner: |_| {
+                THIRD_CHECK_RAN.store(true, Ordering::SeqCst);
+                Ok(())
+            },
+        };
+
+        let checks = vec![&check1, &check2, &check3];
+        let root = Path::new(".");
+
+        // Case 1: stop_on_first_failure = true
+        THIRD_CHECK_RAN.store(false, Ordering::SeqCst);
+        let (records, success, failed_check) = execute_checks(&checks, root, true);
+        assert!(!success);
+        assert_eq!(failed_check, Some("test-check-2".to_string()));
+        assert_eq!(records.len(), 2);
+        assert_eq!(records[0].status, "passed");
+        assert_eq!(records[1].status, "failed");
+        assert!(
+            !THIRD_CHECK_RAN.load(Ordering::SeqCst),
+            "Third check must NOT run when stop_on_first_failure is true"
+        );
+
+        // Case 2: stop_on_first_failure = false
+        THIRD_CHECK_RAN.store(false, Ordering::SeqCst);
+        let (records2, success2, failed_check2) = execute_checks(&checks, root, false);
+        assert!(!success2);
+        assert_eq!(failed_check2, Some("test-check-2".to_string()));
+        assert_eq!(records2.len(), 3);
+        assert!(
+            THIRD_CHECK_RAN.load(Ordering::SeqCst),
+            "Third check MUST run when stop_on_first_failure is false"
+        );
     }
 }

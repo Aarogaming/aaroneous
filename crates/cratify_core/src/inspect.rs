@@ -268,7 +268,7 @@ fn inspect_item(item: Item, info: &mut CodeInfo) {
         }
         Item::Impl(impl_block) => {
             let self_type = type_to_string(&impl_block.self_ty);
-            let trait_name = impl_block.trait_.as_ref().map(|(_, path, _)| {
+            let trait_name = impl_block.trait_.as_ref().map(|(path, _)| {
                 path.segments
                     .last()
                     .map(|s| s.ident.to_string())

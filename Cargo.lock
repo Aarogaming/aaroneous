@@ -1921,7 +1921,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.1",
- "syn 2.0.119",
+ "syn 3.0.5",
  "tempfile",
  "thiserror 2.0.21",
  "toml 1.1.6+spec-1.1.0",
@@ -4797,6 +4797,7 @@ dependencies = [
  "serde",
  "serde_json",
  "si_ir",
+ "tempfile",
  "thiserror 2.0.21",
  "tokio",
  "tracing",
@@ -6333,6 +6334,7 @@ dependencies = [
  "dirs",
  "serde",
  "tempfile",
+ "thiserror 2.0.21",
 ]
 
 [[package]]

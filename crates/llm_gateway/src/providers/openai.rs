@@ -11,6 +11,7 @@ use tracing::{debug, info, warn};
 pub struct OpenAIProvider {
     api_key: String,
     model: String,
+    base_url: Option<String>,
     temperature: f32,
     max_tokens: u32,
 }
@@ -48,15 +49,24 @@ struct Usage {
 }
 
 impl OpenAIProvider {
-    pub async fn new(api_key: String) -> Result<Self> {
-        info!("Initialized OpenAI provider");
+    pub async fn new_explicit(
+        api_key: String,
+        model: String,
+        base_url: Option<String>,
+    ) -> Result<Self> {
+        info!("Initialized OpenAI provider with model: {}", model);
 
         Ok(Self {
             api_key,
-            model: "gpt-4".to_string(),
+            model,
+            base_url,
             temperature: 0.7,
             max_tokens: 2000,
         })
+    }
+
+    pub async fn new(api_key: String) -> Result<Self> {
+        Self::new_explicit(api_key, "gpt-4".to_string(), None).await
     }
 
     async fn call_api(&self, prompt: &str) -> Result<(String, u32, f64)> {
@@ -82,8 +92,12 @@ impl OpenAIProvider {
         // raw primitive; the `with_timeout` helper in
         // `resilience` is the same shape but lives alongside
         // the other async resilience primitives.
+        let url = match &self.base_url {
+            Some(base) => format!("{}/chat/completions", base.trim_end_matches('/')),
+            None => "https://api.openai.com/v1/chat/completions".to_string(),
+        };
         let send_fut = client
-            .post("https://api.openai.com/v1/chat/completions")
+            .post(&url)
             .header("Authorization", format!("Bearer {}", self.api_key))
             .json(&request)
             .send();
