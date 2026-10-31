@@ -136,6 +136,8 @@ pub struct McpService {
     /// Workspace root for file tools (read_code, search_code, list_files).
     /// Injected via `WorkspacePathsConfig` or builder method `with_workspace_root`.
     pub workspace_root: std::path::PathBuf,
+    /// Injected monotonic clock for deterministic time and zero ambient authority
+    pub clock: Arc<dyn crate::mcp_service::Clock>,
 }
 
 impl McpService {
@@ -148,6 +150,7 @@ impl McpService {
         tracing::info!("MCP workspace root: {}", workspace_root.display());
 
         let universal_tools = Arc::new(capabilities::build_standard_tool_registry());
+        let clock: Arc<dyn crate::mcp_service::Clock> = Arc::new(crate::mcp_service::SystemClock);
 
         Self {
             config,
@@ -159,6 +162,34 @@ impl McpService {
             sessions: Arc::new(RwLock::new(HashMap::new())),
             universal_tools,
             workspace_root,
+            clock,
+        }
+    }
+
+    /// Builder method for injected clock abstraction.
+    pub fn with_clock(mut self, clock: Arc<dyn crate::mcp_service::Clock>) -> Self {
+        self.clock = clock;
+        self
+    }
+
+    /// Explicit constructor with workspace root and clock injection.
+    pub fn with_workspace_root_and_clock(
+        config: ServiceConfig,
+        workspace_root: std::path::PathBuf,
+        clock: Arc<dyn crate::mcp_service::Clock>,
+    ) -> Self {
+        let universal_tools = Arc::new(capabilities::build_standard_tool_registry());
+        Self {
+            config,
+            federation: None,
+            tools: Arc::new(RwLock::new(Vec::new())),
+            domains: Arc::new(RwLock::new(HashMap::new())),
+            started_at: std::time::Instant::now(),
+            request_count: Arc::new(std::sync::atomic::AtomicU64::new(0)),
+            sessions: Arc::new(RwLock::new(HashMap::new())),
+            universal_tools,
+            workspace_root,
+            clock,
         }
     }
 
@@ -418,6 +449,55 @@ impl McpService {
         }
 
         info!("Registered {} MCP tools", tools.len());
+    }
+
+    /// Handle an incoming JSON-RPC 2.0 request evaluated strictly against an authenticated CallerContext and timestamp.
+    pub async fn handle_jsonrpc_with_context(
+        &self,
+        raw: serde_json::Value,
+        caller: &crate::mcp_service::CallerContext,
+        now_ms: u64,
+    ) -> JsonRpcResponse {
+        let id = raw.get("id").cloned();
+        let method = match raw.get("method").and_then(|m| m.as_str()) {
+            Some(m) => m,
+            None => return JsonRpcResponse::err(id, -32600, "Invalid Request: missing method"),
+        };
+
+        if method == "tools/call" {
+            let params = match raw.get("params") {
+                Some(p) => p,
+                None => {
+                    return JsonRpcResponse::err(
+                        id,
+                        -32602,
+                        "Invalid params: params object missing",
+                    );
+                }
+            };
+            let tool_name = match params.get("name").and_then(|n| n.as_str()) {
+                Some(n) => n,
+                None => {
+                    return JsonRpcResponse::err(id, -32602, "Invalid params: missing tool name");
+                }
+            };
+
+            let required_class =
+                crate::mcp_service::CapabilityClass::classify_tool(tool_name, None);
+
+            if let Err(auth_err) = caller.is_authorized_for(tool_name, required_class, now_ms) {
+                return JsonRpcResponse::err(
+                    id,
+                    -32001,
+                    &format!(
+                        "Authorization denied for tool '{}': {}",
+                        tool_name, auth_err
+                    ),
+                );
+            }
+        }
+
+        self.handle_jsonrpc(raw).await
     }
 
     /// Handle an incoming JSON-RPC 2.0 request.

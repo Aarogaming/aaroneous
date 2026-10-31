@@ -5,7 +5,9 @@ pub mod http_api;
 pub mod service;
 
 // Re-exports
-pub use auth::{ApiKeyAuth, AuthProvider};
-pub use capability::{Capability, CapabilityDomain};
+pub use auth::{
+    ApiKeyAuth, AuthProvider, AuthorizationError, CallerContext, Clock, MockClock, SystemClock,
+};
+pub use capability::{Capability, CapabilityClass, CapabilityDomain};
 pub use config::ServiceConfig;
-pub use service::{McpService, McpTool};
+pub use service::{JsonRpcResponse, McpService, McpTool};

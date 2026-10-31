@@ -68,8 +68,13 @@ pub mod http_api;
 pub mod service;
 pub mod transport;
 
-pub use auth::{ApiKeyAuth, AuthProvider, OAuth2Auth};
-pub use capability::{Capability, CapabilityDomain, CapabilityHandler, CapabilityResult};
+pub use auth::{
+    ApiKeyAuth, AuthProvider, AuthorizationError, CallerContext, Clock, MockClock, OAuth2Auth,
+    SystemClock,
+};
+pub use capability::{
+    Capability, CapabilityClass, CapabilityDomain, CapabilityHandler, CapabilityResult,
+};
 pub use config::{ServiceConfig, TransportConfig};
 pub use http_api::HttpServer;
 pub use service::{JsonRpcRequest, JsonRpcResponse, McpService, McpTool, ServiceStats};
