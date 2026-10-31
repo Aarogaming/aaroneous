@@ -1,5 +1,6 @@
 #![deny(unsafe_code)]
 
+pub mod base36;
 mod check_deps;
 mod check_unwraps;
 mod encoding;
@@ -27,6 +28,7 @@ fn main() -> Result<()> {
         "install" => install::run(&args[2..]),
         "uninstall" => uninstall::run(),
         "package" => package::run(&args[2..]),
+        "base36" => base36::run(&args[2..]),
         "vbranch" => vbranch::run(&args[2..]),
         "export-wit" => {
             let config = export_wit::WitExportConfig::default();
@@ -72,6 +74,8 @@ Subcommands:
   install             Install Aaroneous on Windows (copies binaries, sets PATH, creates shortcuts)
   uninstall           Remove Aaroneous from Windows
   package             Package a release ZIP distribution
+  base36              Canonical Base36 validation, encoding, and decoding (C88 contract)
+  vbranch             Virtual branch lineage management and operations
 
 Examples:
   cargo xtask gate
