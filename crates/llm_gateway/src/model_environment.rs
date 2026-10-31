@@ -162,6 +162,22 @@ impl DetectedEnvironment {
     }
 }
 
+/// Strict model environment configuration requiring explicit search paths.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct StrictModelEnvironmentConfig {
+    pub search_paths: Vec<PathBuf>,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
+pub enum StrictModelEnvironmentError {
+    #[error("Missing required explicit search paths")]
+    MissingSearchPaths,
+    #[error("Search path does not exist: {0}")]
+    PathNotFound(PathBuf),
+    #[error("Search path is not a directory: {0}")]
+    PathNotDirectory(PathBuf),
+}
+
 /// Environment detector
 pub struct ModelEnvironmentDetector {
     detected_environments: Vec<DetectedEnvironment>,
@@ -173,6 +189,41 @@ impl ModelEnvironmentDetector {
         Self {
             detected_environments: Vec::new(),
         }
+    }
+
+    /// Strict scanning route: inspects ONLY explicitly configured search paths.
+    /// NEVER checks ambient user profiles, home dirs, or probes `which(ollama/local-ai)`.
+    pub fn scan_strict(
+        &mut self,
+        config: &StrictModelEnvironmentConfig,
+    ) -> Result<(), StrictModelEnvironmentError> {
+        if config.search_paths.is_empty() {
+            return Err(StrictModelEnvironmentError::MissingSearchPaths);
+        }
+        for path in &config.search_paths {
+            if !path.exists() {
+                return Err(StrictModelEnvironmentError::PathNotFound(path.clone()));
+            }
+            if !path.is_dir() {
+                return Err(StrictModelEnvironmentError::PathNotDirectory(path.clone()));
+            }
+        }
+
+        self.detected_environments.clear();
+        for path in &config.search_paths {
+            self.detected_environments.push(DetectedEnvironment::new(
+                ModelEnvironment::CustomPath,
+                path.clone(),
+                true,
+                1.0,
+            ));
+        }
+        Ok(())
+    }
+
+    /// Legacy/bootstrap discovery adapter for interactive and developer use.
+    pub fn bootstrap_scan(&mut self, config: &ModelEnvironmentConfig) -> Result<()> {
+        self.scan(config)
     }
 
     /// Scan for installed model environments with config injection
@@ -436,5 +487,57 @@ mod tests {
         );
         assert_eq!(env.environment, ModelEnvironment::LMStudio);
         assert_eq!(env.detection_confidence, 0.95);
+    }
+
+    #[test]
+    fn test_scan_strict_missing_paths() {
+        let mut detector = ModelEnvironmentDetector::new();
+        let config = StrictModelEnvironmentConfig::default();
+        let err = detector.scan_strict(&config).unwrap_err();
+        assert_eq!(err, StrictModelEnvironmentError::MissingSearchPaths);
+    }
+
+    #[test]
+    fn test_scan_strict_path_not_found() {
+        let mut detector = ModelEnvironmentDetector::new();
+        let missing = PathBuf::from("Z:\\non_existent_search_path_4321");
+        let config = StrictModelEnvironmentConfig {
+            search_paths: vec![missing.clone()],
+        };
+        let err = detector.scan_strict(&config).unwrap_err();
+        assert_eq!(err, StrictModelEnvironmentError::PathNotFound(missing));
+    }
+
+    #[test]
+    fn test_scan_strict_path_not_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let file_path = temp.path().join("model.bin");
+        std::fs::write(&file_path, b"test").unwrap();
+
+        let mut detector = ModelEnvironmentDetector::new();
+        let config = StrictModelEnvironmentConfig {
+            search_paths: vec![file_path.clone()],
+        };
+        let err = detector.scan_strict(&config).unwrap_err();
+        assert_eq!(
+            err,
+            StrictModelEnvironmentError::PathNotDirectory(file_path)
+        );
+    }
+
+    #[test]
+    fn test_scan_strict_success() {
+        let temp = tempfile::tempdir().unwrap();
+        let dir1 = temp.path().join("dir1");
+        let dir2 = temp.path().join("dir2");
+        std::fs::create_dir(&dir1).unwrap();
+        std::fs::create_dir(&dir2).unwrap();
+
+        let mut detector = ModelEnvironmentDetector::new();
+        let config = StrictModelEnvironmentConfig {
+            search_paths: vec![dir1.clone(), dir2.clone()],
+        };
+        assert!(detector.scan_strict(&config).is_ok());
+        assert_eq!(detector.all_environments().len(), 2);
     }
 }

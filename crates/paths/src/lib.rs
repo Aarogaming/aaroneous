@@ -8,6 +8,100 @@
 use serde::{Deserialize, Serialize};
 use std::fs;
 use std::path::{Path, PathBuf};
+use thiserror::Error;
+
+/// Named missing-input and validation errors for strict workspace path configuration.
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+pub enum StrictPathsError {
+    #[error("Missing required workspace root path")]
+    MissingRoot,
+    #[error("Specified workspace root path is not absolute: {0}")]
+    RootNotAbsolute(PathBuf),
+    #[error("Specified workspace root path does not exist: {0}")]
+    RootNotFound(PathBuf),
+    #[error("Specified workspace root path is not a directory: {0}")]
+    RootNotDirectory(PathBuf),
+    #[error("Missing required temporary directory path")]
+    MissingTempDir,
+    #[error("Specified temporary directory path is not absolute: {0}")]
+    TempDirNotAbsolute(PathBuf),
+    #[error("Specified temporary directory does not exist: {0}")]
+    TempDirNotFound(PathBuf),
+    #[error("Specified temporary directory is not a directory: {0}")]
+    TempDirNotDirectory(PathBuf),
+    #[error("Missing required external data root path")]
+    MissingDataRoot,
+    #[error("Specified external data root path is not absolute: {0}")]
+    DataRootNotAbsolute(PathBuf),
+    #[error("Specified external data root path does not exist: {0}")]
+    DataRootNotFound(PathBuf),
+    #[error("Specified external data root path is not a directory: {0}")]
+    DataRootNotDirectory(PathBuf),
+}
+
+/// Fully explicit, zero-fallback workspace paths configuration for external controllers.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct StrictWorkspacePathsConfig {
+    pub root: PathBuf,
+    pub temp_dir: PathBuf,
+    pub data_root: PathBuf,
+}
+
+impl StrictWorkspacePathsConfig {
+    pub fn new(root: PathBuf, temp_dir: PathBuf, data_root: PathBuf) -> Self {
+        Self {
+            root,
+            temp_dir,
+            data_root,
+        }
+    }
+
+    /// Validates all paths strictly: root, temp_dir, and data_root must be absolute paths,
+    /// exist, and be directories.
+    pub fn validate(&self) -> Result<(), StrictPathsError> {
+        if self.root.as_os_str().is_empty() {
+            return Err(StrictPathsError::MissingRoot);
+        }
+        if !self.root.is_absolute() {
+            return Err(StrictPathsError::RootNotAbsolute(self.root.clone()));
+        }
+        if !self.root.exists() {
+            return Err(StrictPathsError::RootNotFound(self.root.clone()));
+        }
+        if !self.root.is_dir() {
+            return Err(StrictPathsError::RootNotDirectory(self.root.clone()));
+        }
+        if self.temp_dir.as_os_str().is_empty() {
+            return Err(StrictPathsError::MissingTempDir);
+        }
+        if !self.temp_dir.is_absolute() {
+            return Err(StrictPathsError::TempDirNotAbsolute(self.temp_dir.clone()));
+        }
+        if !self.temp_dir.exists() {
+            return Err(StrictPathsError::TempDirNotFound(self.temp_dir.clone()));
+        }
+        if !self.temp_dir.is_dir() {
+            return Err(StrictPathsError::TempDirNotDirectory(self.temp_dir.clone()));
+        }
+        if self.data_root.as_os_str().is_empty() {
+            return Err(StrictPathsError::MissingDataRoot);
+        }
+        if !self.data_root.is_absolute() {
+            return Err(StrictPathsError::DataRootNotAbsolute(
+                self.data_root.clone(),
+            ));
+        }
+        if !self.data_root.exists() {
+            return Err(StrictPathsError::DataRootNotFound(self.data_root.clone()));
+        }
+        if !self.data_root.is_dir() {
+            return Err(StrictPathsError::DataRootNotDirectory(
+                self.data_root.clone(),
+            ));
+        }
+        Ok(())
+    }
+}
 
 /// Discovered Local LLM / GGUF Model Info
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
@@ -55,6 +149,70 @@ impl WorkspacePathsConfig {
         self.external_data_root = Some(data_root);
         self
     }
+
+    /// Validates this configuration against the strict external-controller contract.
+    ///
+    /// Unlike `discover()`, this returns a named `StrictPathsError` if `explicit_root`,
+    /// `temp_dir`, or `external_data_root` is missing, non-existent, or not a directory.
+    /// It NEVER invokes ambient system discovery, executable traversal, or sibling fallbacks.
+    pub fn validate_strict(&self) -> Result<StrictWorkspacePathsConfig, StrictPathsError> {
+        let root = self
+            .explicit_root
+            .clone()
+            .ok_or(StrictPathsError::MissingRoot)?;
+        if root.as_os_str().is_empty() {
+            return Err(StrictPathsError::MissingRoot);
+        }
+        if !root.is_absolute() {
+            return Err(StrictPathsError::RootNotAbsolute(root));
+        }
+        if !root.exists() {
+            return Err(StrictPathsError::RootNotFound(root));
+        }
+        if !root.is_dir() {
+            return Err(StrictPathsError::RootNotDirectory(root));
+        }
+
+        let temp_dir = self
+            .temp_dir
+            .clone()
+            .ok_or(StrictPathsError::MissingTempDir)?;
+        if temp_dir.as_os_str().is_empty() {
+            return Err(StrictPathsError::MissingTempDir);
+        }
+        if !temp_dir.is_absolute() {
+            return Err(StrictPathsError::TempDirNotAbsolute(temp_dir));
+        }
+        if !temp_dir.exists() {
+            return Err(StrictPathsError::TempDirNotFound(temp_dir));
+        }
+        if !temp_dir.is_dir() {
+            return Err(StrictPathsError::TempDirNotDirectory(temp_dir));
+        }
+
+        let data_root = self
+            .external_data_root
+            .clone()
+            .ok_or(StrictPathsError::MissingDataRoot)?;
+        if data_root.as_os_str().is_empty() {
+            return Err(StrictPathsError::MissingDataRoot);
+        }
+        if !data_root.is_absolute() {
+            return Err(StrictPathsError::DataRootNotAbsolute(data_root));
+        }
+        if !data_root.exists() {
+            return Err(StrictPathsError::DataRootNotFound(data_root));
+        }
+        if !data_root.is_dir() {
+            return Err(StrictPathsError::DataRootNotDirectory(data_root));
+        }
+
+        Ok(StrictWorkspacePathsConfig {
+            root,
+            temp_dir,
+            data_root,
+        })
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -66,13 +224,43 @@ pub struct WorkspacePaths {
 
 impl Default for WorkspacePaths {
     fn default() -> Self {
-        Self::discover(&WorkspacePathsConfig::new())
+        Self::bootstrap_adapter(&WorkspacePathsConfig::new())
     }
 }
 
 impl WorkspacePaths {
-    /// Discover and construct workspace paths dynamically without hardcoded drive letters.
-    pub fn discover(config: &WorkspacePathsConfig) -> Self {
+    /// Construct strictly validated workspace paths for external controllers.
+    ///
+    /// Requires explicit root, temp_dir, and data_root.
+    /// Performs ZERO ambient filesystem traversals, ZERO home directory probes,
+    /// and ZERO fallback defaults. If any path is missing, does not exist,
+    /// or is not a directory, a typed `StrictPathsError` is returned.
+    pub fn from_strict_config(
+        config: StrictWorkspacePathsConfig,
+    ) -> Result<Self, StrictPathsError> {
+        config.validate()?;
+        Ok(Self {
+            root: config.root,
+            temp_dir: config.temp_dir,
+            data_root: config.data_root,
+        })
+    }
+
+    /// Construct strictly validated workspace paths from `WorkspacePathsConfig`.
+    ///
+    /// Returns `StrictPathsError` if any required path is missing, non-existent,
+    /// or not a directory.
+    pub fn strict(config: &WorkspacePathsConfig) -> Result<Self, StrictPathsError> {
+        let strict_config = config.validate_strict()?;
+        Self::from_strict_config(strict_config)
+    }
+
+    /// Legacy/bootstrap compatibility adapter for developer and interactive workflows.
+    ///
+    /// This adapter performs ambient discovery, executable traversal, and sibling folder
+    /// guessing if explicit paths are not supplied. External controllers MUST NOT use
+    /// this route; use [`Self::from_strict_config`] or [`Self::strict`] instead.
+    pub fn bootstrap_adapter(config: &WorkspacePathsConfig) -> Self {
         // 1. Use explicit root from config (replaces env var lookup)
         let root = if let Some(explicit_root) = &config.explicit_root {
             if explicit_root.exists() {
@@ -93,6 +281,11 @@ impl WorkspacePaths {
             temp_dir,
             data_root,
         }
+    }
+
+    /// Compatibility wrapper delegating to [`Self::bootstrap_adapter`].
+    pub fn discover(config: &WorkspacePathsConfig) -> Self {
+        Self::bootstrap_adapter(config)
     }
 
     fn discover_external_data_root(config: &WorkspacePathsConfig, root: &Path) -> PathBuf {
@@ -391,14 +584,18 @@ impl UniversalModelHubRegistry {
         });
     }
 
-    pub fn discover_locations(&self) -> Vec<ModelHubLocation> {
+    /// Discover model hub locations using explicitly injected home and local_data roots.
+    /// Does not perform ambient directory queries if roots are not provided.
+    pub fn discover_locations_with_roots(
+        &self,
+        home: Option<&Path>,
+        local_data: Option<&Path>,
+    ) -> Vec<ModelHubLocation> {
         let mut hubs = Vec::new();
-        let home = dirs::home_dir();
-        let local_data = dirs::data_local_dir();
 
         for d in &self.detectors {
             if let Some(rel) = &d.relative_to_home {
-                if let Some(h) = &home {
+                if let Some(h) = home {
                     let target = h.join(rel);
                     hubs.push(ModelHubLocation {
                         name: d.name.clone(),
@@ -407,7 +604,7 @@ impl UniversalModelHubRegistry {
                     });
                 }
             } else if let Some(rel) = &d.relative_to_local_data
-                && let Some(ld) = &local_data
+                && let Some(ld) = local_data
             {
                 let target = ld.join(rel);
                 hubs.push(ModelHubLocation {
@@ -419,9 +616,30 @@ impl UniversalModelHubRegistry {
         }
         hubs
     }
+
+    /// Legacy/bootstrap location discovery querying ambient host user directories.
+    pub fn discover_locations(&self) -> Vec<ModelHubLocation> {
+        self.discover_locations_with_roots(
+            dirs::home_dir().as_deref(),
+            dirs::data_local_dir().as_deref(),
+        )
+    }
 }
 
 impl WorkspacePaths {
+    /// Explicit scan of user-specified model directories.
+    /// Does not query ambient model hub locations unless explicitly passed.
+    pub fn scan_explicit_gguf_models(&self, search_dirs: &[PathBuf]) -> Vec<DiscoveredGgufModel> {
+        let mut discovered = Vec::new();
+        let mut searched_paths = std::collections::HashSet::new();
+
+        for dir in search_dirs {
+            if dir.exists() && searched_paths.insert(dir.clone()) {
+                Self::scan_directory_for_gguf(dir, "Explicit Search Dir", &mut discovered, 4);
+            }
+        }
+        discovered
+    }
     // ── Local LLM & GGUF Model Hub Auto-Discovery ─────────────────────
 
     /// Returns standard default paths for popular local LLM managers dynamically
@@ -756,5 +974,223 @@ mod tests {
         std::fs::write(&module_store, b"{}").unwrap();
 
         assert_eq!(paths.module_preset("sentinel"), module_store);
+    }
+
+    #[test]
+    fn test_strict_paths_missing_root() {
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path().join("tmp");
+        let data_dir = temp.path().join("data");
+        std::fs::create_dir(&temp_dir).unwrap();
+        std::fs::create_dir(&data_dir).unwrap();
+
+        let config = WorkspacePathsConfig::new()
+            .with_temp_dir(temp_dir)
+            .with_external_data_root(data_dir);
+        let err = config.validate_strict().unwrap_err();
+        assert_eq!(err, StrictPathsError::MissingRoot);
+
+        let err2 = WorkspacePaths::strict(&config).unwrap_err();
+        assert_eq!(err2, StrictPathsError::MissingRoot);
+    }
+
+    #[test]
+    fn test_strict_paths_relative_root_rejected() {
+        let temp = tempfile::tempdir().unwrap();
+        let temp_dir = temp.path().join("tmp");
+        let data_dir = temp.path().join("data");
+        std::fs::create_dir(&temp_dir).unwrap();
+        std::fs::create_dir(&data_dir).unwrap();
+
+        let rel_root = PathBuf::from("./relative_workspace");
+        let config = WorkspacePathsConfig::new()
+            .with_explicit_root(rel_root.clone())
+            .with_temp_dir(temp_dir)
+            .with_external_data_root(data_dir);
+        let err = config.validate_strict().unwrap_err();
+        assert_eq!(err, StrictPathsError::RootNotAbsolute(rel_root));
+    }
+
+    #[test]
+    fn test_strict_paths_root_not_found() {
+        let temp = tempfile::tempdir().unwrap();
+        let non_existent = temp.path().join("non_existent_workspace_dir_12345");
+        let temp_dir = temp.path().join("tmp");
+        let data_dir = temp.path().join("data");
+        std::fs::create_dir(&temp_dir).unwrap();
+        std::fs::create_dir(&data_dir).unwrap();
+
+        let config = WorkspacePathsConfig::new()
+            .with_explicit_root(non_existent.clone())
+            .with_temp_dir(temp_dir)
+            .with_external_data_root(data_dir);
+        let err = config.validate_strict().unwrap_err();
+        assert_eq!(err, StrictPathsError::RootNotFound(non_existent));
+    }
+
+    #[test]
+    fn test_strict_paths_root_not_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let file_path = temp.path().join("not_a_dir.txt");
+        std::fs::write(&file_path, b"hello").unwrap();
+        let temp_dir = temp.path().join("tmp");
+        let data_dir = temp.path().join("data");
+        std::fs::create_dir(&temp_dir).unwrap();
+        std::fs::create_dir(&data_dir).unwrap();
+
+        let config = WorkspacePathsConfig::new()
+            .with_explicit_root(file_path.clone())
+            .with_temp_dir(temp_dir)
+            .with_external_data_root(data_dir);
+        let err = config.validate_strict().unwrap_err();
+        assert_eq!(err, StrictPathsError::RootNotDirectory(file_path));
+    }
+
+    #[test]
+    fn test_strict_paths_missing_temp_dir() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("workspace");
+        let data_dir = temp.path().join("data");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&data_dir).unwrap();
+
+        let config = WorkspacePathsConfig::new()
+            .with_explicit_root(root)
+            .with_external_data_root(data_dir);
+        let err = config.validate_strict().unwrap_err();
+        assert_eq!(err, StrictPathsError::MissingTempDir);
+    }
+
+    #[test]
+    fn test_strict_paths_relative_temp_dir_rejected() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("workspace");
+        let data_dir = temp.path().join("data");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&data_dir).unwrap();
+
+        let rel_temp = PathBuf::from("./relative_tmp");
+        let config = WorkspacePathsConfig::new()
+            .with_explicit_root(root)
+            .with_temp_dir(rel_temp.clone())
+            .with_external_data_root(data_dir);
+        let err = config.validate_strict().unwrap_err();
+        assert_eq!(err, StrictPathsError::TempDirNotAbsolute(rel_temp));
+    }
+
+    #[test]
+    fn test_strict_paths_temp_dir_not_found() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("workspace");
+        let data_dir = temp.path().join("data");
+        let non_existent_temp = temp.path().join("non_existent_tmp");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&data_dir).unwrap();
+
+        let config = WorkspacePathsConfig::new()
+            .with_explicit_root(root)
+            .with_temp_dir(non_existent_temp.clone())
+            .with_external_data_root(data_dir);
+        let err = config.validate_strict().unwrap_err();
+        assert_eq!(err, StrictPathsError::TempDirNotFound(non_existent_temp));
+    }
+
+    #[test]
+    fn test_strict_paths_missing_data_root() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("workspace");
+        let temp_dir = temp.path().join("tmp");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&temp_dir).unwrap();
+
+        let config = WorkspacePathsConfig::new()
+            .with_explicit_root(root)
+            .with_temp_dir(temp_dir);
+        let err = config.validate_strict().unwrap_err();
+        assert_eq!(err, StrictPathsError::MissingDataRoot);
+    }
+
+    #[test]
+    fn test_strict_paths_relative_data_root_rejected() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("workspace");
+        let temp_dir = temp.path().join("tmp");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&temp_dir).unwrap();
+
+        let rel_data = PathBuf::from("./relative_data");
+        let config = WorkspacePathsConfig::new()
+            .with_explicit_root(root)
+            .with_temp_dir(temp_dir)
+            .with_external_data_root(rel_data.clone());
+        let err = config.validate_strict().unwrap_err();
+        assert_eq!(err, StrictPathsError::DataRootNotAbsolute(rel_data));
+    }
+
+    #[test]
+    fn test_strict_paths_data_root_not_found() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("workspace");
+        let temp_dir = temp.path().join("tmp");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&temp_dir).unwrap();
+        let non_existent_data = temp.path().join("non_existent_data_root_67890");
+
+        let config = WorkspacePathsConfig::new()
+            .with_explicit_root(root)
+            .with_temp_dir(temp_dir)
+            .with_external_data_root(non_existent_data.clone());
+        let err = config.validate_strict().unwrap_err();
+        assert_eq!(err, StrictPathsError::DataRootNotFound(non_existent_data));
+    }
+
+    #[test]
+    fn test_strict_paths_data_root_not_directory() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("workspace");
+        let temp_dir = temp.path().join("tmp");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&temp_dir).unwrap();
+        let file_data = temp.path().join("data_file.txt");
+        std::fs::write(&file_data, b"not a dir").unwrap();
+
+        let config = WorkspacePathsConfig::new()
+            .with_explicit_root(root)
+            .with_temp_dir(temp_dir)
+            .with_external_data_root(file_data.clone());
+        let err = config.validate_strict().unwrap_err();
+        assert_eq!(err, StrictPathsError::DataRootNotDirectory(file_data));
+    }
+
+    #[test]
+    fn test_strict_paths_supplied_values_and_no_ambient_fallback() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path().join("workspace");
+        let data_root = temp.path().join("data");
+        let temp_dir = temp.path().join("tmp");
+        std::fs::create_dir(&root).unwrap();
+        std::fs::create_dir(&data_root).unwrap();
+        std::fs::create_dir(&temp_dir).unwrap();
+
+        let strict_config =
+            StrictWorkspacePathsConfig::new(root.clone(), temp_dir.clone(), data_root.clone());
+
+        let ws = WorkspacePaths::from_strict_config(strict_config).unwrap();
+        assert_eq!(ws.root(), &root);
+        assert_eq!(ws.data_root(), &data_root);
+        assert_eq!(ws.temp_dir(), &temp_dir);
+
+        // Verify absence of ambient fallback: empty config strictly fails
+        let empty_config = WorkspacePathsConfig::new();
+        assert!(WorkspacePaths::strict(&empty_config).is_err());
+    }
+
+    #[test]
+    fn test_bootstrap_adapter_retains_legacy_behavior() {
+        let config = WorkspacePathsConfig::new();
+        let legacy_ws = WorkspacePaths::bootstrap_adapter(&config);
+        assert!(!legacy_ws.root().as_os_str().is_empty());
+        assert!(!legacy_ws.temp_dir().as_os_str().is_empty());
+        assert!(!legacy_ws.data_root().as_os_str().is_empty());
     }
 }
