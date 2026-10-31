@@ -344,7 +344,7 @@ mod tests {
 }
 
 // ---------------------------------------------------------------------------
-// Cascading Automata Reducer (Lane C150)
+// Cascading Automata Reducer (Lane C176)
 // Zero-allocation, fuel-bounded hierarchical state reduction.
 // ---------------------------------------------------------------------------
 
@@ -393,7 +393,7 @@ pub enum DiscreteAction {
 }
 
 /// Contiguous, stack-allocated action emission buffer (zero heap).
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct BoundedActionList {
     pub actions: [DiscreteAction; MAX_ACTIONS_PER_STEP],
     pub count: usize,
@@ -428,6 +428,7 @@ pub enum ReducerTrap {
     InvalidNodeIndex(NodeIdx),
     ActionCapacityExceeded,
     IllegalCycleDetected,
+    IntegerOverflow,
 }
 
 /// Pure control flow instructions addressing nodes exclusively via `NodeIdx`.
@@ -499,6 +500,7 @@ pub struct AutomatonState {
 }
 
 /// Pure, non-allocating Three-Phase State Reducer: S_{t+1} = f(S_t, I).
+#[doc = "hot_path"]
 pub fn reduce_step<const N: usize>(
     arena: &MacroArena<N>,
     mut state: AutomatonState,
@@ -521,7 +523,11 @@ pub fn reduce_step<const N: usize>(
     match arena.nodes[node_idx].instruction {
         ControlInstruction::EmitAction(action) => {
             actions.push(action)?;
-            state.active_node.0 += 1;
+            state.active_node.0 = state
+                .active_node
+                .0
+                .checked_add(1)
+                .ok_or(ReducerTrap::IntegerOverflow)?;
         }
         ControlInstruction::Branch {
             condition,
@@ -537,10 +543,10 @@ pub fn reduce_step<const N: usize>(
             max_iterations_per_tick,
             body,
         } => {
-            let mut iters = 0;
+            let mut iters: u16 = 0;
             while (obs.condition_evaluator)(condition) {
                 fuel.consume(2)?;
-                iters += 1;
+                iters = iters.checked_add(1).ok_or(ReducerTrap::IntegerOverflow)?;
                 if iters > max_iterations_per_tick {
                     return Err(ReducerTrap::LoopIterationCapExceeded);
                 }
@@ -554,14 +560,22 @@ pub fn reduce_step<const N: usize>(
                     actions.push(inner_actions.actions[i])?;
                 }
             }
-            state.active_node.0 += 1;
+            state.active_node.0 = state
+                .active_node
+                .0
+                .checked_add(1)
+                .ok_or(ReducerTrap::IntegerOverflow)?;
         }
         ControlInstruction::CallSubroutine(sub_id) => {
             fuel.consume(1)?;
             if state.call_depth as usize >= MAX_SUBROUTINE_DEPTH {
                 return Err(ReducerTrap::RecursionLimitExceeded);
             }
-            let sub_entry = arena.subroutines[sub_id.0 as usize];
+            let sub_idx = sub_id.0 as usize;
+            if sub_idx >= arena.subroutines.len() {
+                return Err(ReducerTrap::InvalidNodeIndex(NodeIdx(sub_id.0)));
+            }
+            let sub_entry = arena.subroutines[sub_idx];
             let sub_state = AutomatonState {
                 active_node: sub_entry,
                 call_depth: state.call_depth + 1,
@@ -572,7 +586,11 @@ pub fn reduce_step<const N: usize>(
                 actions.push(sub_actions.actions[i])?;
             }
             if next_sub.halted {
-                state.active_node.0 += 1;
+                state.active_node.0 = state
+                    .active_node
+                    .0
+                    .checked_add(1)
+                    .ok_or(ReducerTrap::IntegerOverflow)?;
             }
         }
         ControlInstruction::Sequence { start_idx, length } => {
@@ -590,8 +608,12 @@ pub fn reduce_step<const N: usize>(
             let mut resolved = false;
             for offset in 0..length {
                 fuel.consume(1)?;
+                let target_node = start_idx
+                    .0
+                    .checked_add(offset)
+                    .ok_or(ReducerTrap::IntegerOverflow)?;
                 let test_state = AutomatonState {
-                    active_node: NodeIdx(start_idx.0 + offset),
+                    active_node: NodeIdx(target_node),
                     call_depth: state.call_depth,
                     halted: false,
                 };
@@ -606,7 +628,11 @@ pub fn reduce_step<const N: usize>(
             if !resolved {
                 state.halted = true;
             } else {
-                state.active_node.0 += length;
+                state.active_node.0 = state
+                    .active_node
+                    .0
+                    .checked_add(length)
+                    .ok_or(ReducerTrap::IntegerOverflow)?;
             }
         }
         ControlInstruction::Halt => {
@@ -629,19 +655,45 @@ pub fn validate_arena<const N: usize>(arena: &MacroArena<N>) -> Result<(), Reduc
             ControlInstruction::Branch {
                 on_true, on_false, ..
             } => {
-                if (on_true.0 as usize) >= arena.node_count
-                    || (on_false.0 as usize) >= arena.node_count
-                {
+                if (on_true.0 as usize) >= arena.node_count {
                     return Err(ReducerTrap::InvalidNodeIndex(on_true));
+                }
+                if (on_false.0 as usize) >= arena.node_count {
+                    return Err(ReducerTrap::InvalidNodeIndex(on_false));
                 }
             }
             ControlInstruction::CallSubroutine(sub_id) => {
-                let entry = arena.subroutines[sub_id.0 as usize];
+                let sub_idx = sub_id.0 as usize;
+                if sub_idx >= arena.subroutines.len() {
+                    return Err(ReducerTrap::InvalidNodeIndex(NodeIdx(sub_id.0)));
+                }
+                let entry = arena.subroutines[sub_idx];
                 if (entry.0 as usize) >= arena.node_count {
                     return Err(ReducerTrap::InvalidNodeIndex(entry));
                 }
             }
-            _ => {}
+            ControlInstruction::Sequence { start_idx, length } => {
+                let end = (start_idx.0 as usize)
+                    .checked_add(length as usize)
+                    .ok_or(ReducerTrap::IntegerOverflow)?;
+                if end > arena.node_count {
+                    return Err(ReducerTrap::InvalidNodeIndex(start_idx));
+                }
+            }
+            ControlInstruction::Selector { start_idx, length } => {
+                let end = (start_idx.0 as usize)
+                    .checked_add(length as usize)
+                    .ok_or(ReducerTrap::IntegerOverflow)?;
+                if end > arena.node_count {
+                    return Err(ReducerTrap::InvalidNodeIndex(start_idx));
+                }
+            }
+            ControlInstruction::LoopWhile { body, .. } => {
+                if (body.0 as usize) >= arena.node_count {
+                    return Err(ReducerTrap::InvalidNodeIndex(body));
+                }
+            }
+            ControlInstruction::EmitAction(_) | ControlInstruction::Halt => {}
         }
     }
     Ok(())
@@ -750,5 +802,133 @@ mod cascading_automata_tests {
 
         let result = reduce_step(&arena, state, &obs, &mut fuel);
         assert!(matches!(result, Err(ReducerTrap::LoopIterationCapExceeded)));
+    }
+
+    #[test]
+    fn test_validate_arena_catches_invalid_branch_targets() {
+        let mut arena: MacroArena<16> = MacroArena::default();
+        arena.nodes[0] = MacroArenaNode {
+            instruction: ControlInstruction::Branch {
+                condition: ConditionId(0),
+                on_true: NodeIdx(5),
+                on_false: NodeIdx(1),
+            },
+        };
+        arena.nodes[1] = MacroArenaNode {
+            instruction: ControlInstruction::Halt,
+        };
+        arena.node_count = 2;
+
+        let err = validate_arena(&arena);
+        assert_eq!(err, Err(ReducerTrap::InvalidNodeIndex(NodeIdx(5))));
+    }
+
+    #[test]
+    fn test_validate_arena_catches_invalid_subroutines() {
+        let mut arena: MacroArena<16> = MacroArena::default();
+        // Out of bounds subroutine ID (> 31)
+        arena.nodes[0] = MacroArenaNode {
+            instruction: ControlInstruction::CallSubroutine(SubroutineId(32)),
+        };
+        arena.node_count = 1;
+        assert_eq!(
+            validate_arena(&arena),
+            Err(ReducerTrap::InvalidNodeIndex(NodeIdx(32)))
+        );
+
+        // Subroutine entry pointing past node_count
+        arena.nodes[0] = MacroArenaNode {
+            instruction: ControlInstruction::CallSubroutine(SubroutineId(0)),
+        };
+        arena.subroutines[0] = NodeIdx(10);
+        assert_eq!(
+            validate_arena(&arena),
+            Err(ReducerTrap::InvalidNodeIndex(NodeIdx(10)))
+        );
+    }
+
+    #[test]
+    fn test_validate_arena_catches_invalid_sequence_and_selector() {
+        let mut arena: MacroArena<16> = MacroArena::default();
+        arena.nodes[0] = MacroArenaNode {
+            instruction: ControlInstruction::Sequence {
+                start_idx: NodeIdx(1),
+                length: 5,
+            },
+        };
+        arena.node_count = 3;
+        assert_eq!(
+            validate_arena(&arena),
+            Err(ReducerTrap::InvalidNodeIndex(NodeIdx(1)))
+        );
+
+        arena.nodes[0] = MacroArenaNode {
+            instruction: ControlInstruction::Selector {
+                start_idx: NodeIdx(2),
+                length: 2,
+            },
+        };
+        assert_eq!(
+            validate_arena(&arena),
+            Err(ReducerTrap::InvalidNodeIndex(NodeIdx(2)))
+        );
+    }
+
+    #[test]
+    fn test_validate_arena_catches_invalid_loop_body() {
+        let mut arena: MacroArena<16> = MacroArena::default();
+        arena.nodes[0] = MacroArenaNode {
+            instruction: ControlInstruction::LoopWhile {
+                condition: ConditionId(0),
+                max_iterations_per_tick: 10,
+                body: NodeIdx(4),
+            },
+        };
+        arena.node_count = 1;
+        assert_eq!(
+            validate_arena(&arena),
+            Err(ReducerTrap::InvalidNodeIndex(NodeIdx(4)))
+        );
+    }
+
+    #[test]
+    fn test_integer_overflow_protection() {
+        let mut arena: MacroArena<16> = MacroArena::default();
+        arena.nodes[0] = MacroArenaNode {
+            instruction: ControlInstruction::EmitAction(DiscreteAction::YieldSlice),
+        };
+        arena.node_count = 1;
+
+        let obs = SensorySnapshot {
+            monotonic_timestamp_ns: 1_000_000,
+            condition_evaluator: &|_| false,
+        };
+
+        let mut fuel = StepFuel(10);
+        let state = AutomatonState {
+            active_node: NodeIdx(0),
+            call_depth: 0,
+            halted: false,
+        };
+
+        // When node_idx == 0, state.active_node.0 becomes 1
+        let (next_state, _) = reduce_step(&arena, state, &obs, &mut fuel).expect("step succeeds");
+        assert_eq!(next_state.active_node, NodeIdx(1));
+
+        // Now test integer overflow: node idx at u16::MAX
+        let arena_max: MacroArena<65536> = MacroArena {
+            nodes: [MacroArenaNode {
+                instruction: ControlInstruction::EmitAction(DiscreteAction::YieldSlice),
+            }; 65536],
+            subroutines: [NodeIdx(0); 32],
+            node_count: 65536,
+        };
+        let state_max = AutomatonState {
+            active_node: NodeIdx(u16::MAX),
+            call_depth: 0,
+            halted: false,
+        };
+        let err = reduce_step(&arena_max, state_max, &obs, &mut fuel);
+        assert!(matches!(err, Err(ReducerTrap::IntegerOverflow)));
     }
 }
