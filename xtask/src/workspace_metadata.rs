@@ -263,7 +263,6 @@ pub struct CapabilityManifest {
 #[derive(Serialize)]
 pub struct FingerprintPayload<'a> {
     pub schema_version: &'a str,
-    pub workspace_root: &'a str,
     pub git_revision: &'a str,
     pub crates: &'a BTreeMap<String, CrateInfo>,
     pub tools: &'a [ToolDescriptor],
@@ -277,7 +276,6 @@ impl<'a> From<&'a CapabilityManifest> for FingerprintPayload<'a> {
     fn from(m: &'a CapabilityManifest) -> Self {
         Self {
             schema_version: &m.schema_version,
-            workspace_root: &m.workspace_root,
             git_revision: &m.git_revision,
             crates: &m.crates,
             tools: &m.tools,
@@ -332,6 +330,23 @@ pub fn resolve_git_revision(workspace_root: &Path) -> Result<String> {
                     if is_valid_hex_sha(&sha) {
                         return Ok(sha.to_lowercase());
                     }
+                } else if let Ok(packed_content) = fs::read_to_string(git_dir.join("packed-refs")) {
+                    // Try reading from .git/packed-refs
+                    for line in packed_content.lines() {
+                        let line = line.trim();
+                        if line.starts_with('#') || line.starts_with('^') || line.is_empty() {
+                            continue;
+                        }
+                        let mut parts = line.split_whitespace();
+                        match (parts.next(), parts.next()) {
+                            (Some(sha), Some(name))
+                                if name == ref_path && is_valid_hex_sha(sha) =>
+                            {
+                                return Ok(sha.to_lowercase());
+                            }
+                            _ => {}
+                        }
+                    }
                 }
             } else if is_valid_hex_sha(&head_content) {
                 return Ok(head_content.to_lowercase());
@@ -362,6 +377,37 @@ pub fn validate_gate_name(gate_name: &str) -> Result<()> {
             allowed
         )
     }
+}
+
+fn check_no_devtools_deps(
+    table: &toml::map::Map<String, toml::Value>,
+    crate_name: &str,
+    table_name: &str,
+) -> Result<Vec<String>> {
+    let mut deps = Vec::new();
+    for (dep_name, dep_val) in table {
+        deps.push(dep_name.clone());
+        if dep_name.to_lowercase().contains("devtools") {
+            bail!(
+                "Forbidden dependency '{}' in [{}] for crate '{}': Aaroneous cannot depend on Devtools",
+                dep_name,
+                table_name,
+                crate_name
+            );
+        }
+        if let Some(path_str) = dep_val.get("path").and_then(|p| p.as_str())
+            && path_str.to_lowercase().contains("devtools")
+        {
+            bail!(
+                "Forbidden dependency path '{}' in [{}] for crate '{}' -> '{}': Aaroneous cannot depend on Devtools",
+                path_str,
+                table_name,
+                crate_name,
+                dep_name
+            );
+        }
+    }
+    Ok(deps)
 }
 
 /// Scan a workspace and generate the schema-versioned capability manifest.
@@ -405,10 +451,56 @@ pub fn scan_workspace(
         );
     }
 
+    // Verify tracked files are clean (working tree binds content to git revision)
+    let diff_status = Command::new("git")
+        .args(["diff-index", "--quiet", "HEAD", "--"])
+        .current_dir(workspace_root)
+        .status()
+        .context("executing git diff-index to verify tree cleanliness")?;
+    if !diff_status.success() {
+        bail!(
+            "Working tree at {:?} has uncommitted modifications; cannot export capability manifest for revision {} with dirty tree",
+            workspace_root,
+            actual_rev
+        );
+    }
+
+    // Verify absence of untracked files
+    let status_output = Command::new("git")
+        .args(["status", "--porcelain", "--untracked-files=normal"])
+        .current_dir(workspace_root)
+        .output()
+        .context("executing git status to verify absence of untracked files")?;
+    if !status_output.status.success() {
+        bail!(
+            "Failed to execute git status in {:?}: {}",
+            workspace_root,
+            String::from_utf8_lossy(&status_output.stderr)
+        );
+    }
+    let status_str = String::from_utf8_lossy(&status_output.stdout);
+    if !status_str.trim().is_empty() {
+        bail!(
+            "Working tree at {:?} has untracked or modified files; cannot export capability manifest for revision {} with dirty tree:\n{}",
+            workspace_root,
+            actual_rev,
+            status_str.trim()
+        );
+    }
+
     let root_content = fs::read_to_string(&root_toml)
         .with_context(|| format!("reading {}", root_toml.display()))?;
     let root_parsed: toml::Value = toml::from_str(&root_content)
         .with_context(|| format!("parsing TOML in {}", root_toml.display()))?;
+
+    // Audit workspace-level dependencies for any devtools edge
+    if let Some(ws_deps) = root_parsed
+        .get("workspace")
+        .and_then(|w| w.get("dependencies"))
+        .and_then(|d| d.as_table())
+    {
+        check_no_devtools_deps(ws_deps, "workspace", "workspace.dependencies")?;
+    }
 
     let members = root_parsed
         .get("workspace")
@@ -453,7 +545,30 @@ pub fn scan_workspace(
         let crate_toml = crate_path.join("Cargo.toml");
 
         if !crate_toml.exists() {
-            continue;
+            bail!(
+                "Workspace member '{}' does not have a Cargo.toml at {:?}",
+                member_str,
+                crate_toml
+            );
+        }
+
+        // Verify member Cargo.toml is tracked in the git revision
+        let rel_toml = format!(
+            "{}/Cargo.toml",
+            member_str.trim_matches('/').replace('\\', "/")
+        );
+        let ls_output = Command::new("git")
+            .args(["ls-files", "--error-unmatch", &rel_toml])
+            .current_dir(workspace_root)
+            .output()
+            .context("verifying member manifest is tracked in git")?;
+        if !ls_output.status.success() {
+            bail!(
+                "Workspace member '{}' manifest '{}' is not tracked in git revision {}",
+                member_str,
+                rel_toml,
+                actual_rev
+            );
         }
 
         let crate_content = fs::read_to_string(&crate_toml)
@@ -476,28 +591,66 @@ pub fn scan_workspace(
             .unwrap_or("0.0.0")
             .to_string();
 
-        // 1. Extract Cratify profile ([package.metadata.cratify].profile)
-        let cratify_profile = crate_parsed
-            .get("package")
-            .and_then(|p| p.get("metadata"))
-            .and_then(|m| m.get("cratify"))
-            .and_then(|c| c.get("profile"))
-            .and_then(|p| p.as_str())
-            .map(String::from);
+        // 1. Extract Cratify profile ([package.metadata.cratify].profile) strictly
+        let cratify_profile = if let Some(meta) =
+            crate_parsed.get("package").and_then(|p| p.get("metadata"))
+        {
+            if let Some(cratify) = meta.get("cratify") {
+                if let Some(cratify_table) = cratify.as_table() {
+                    match cratify_table.get("profile") {
+                        Some(p) => match p.as_str() {
+                            Some(s) => Some(s.to_string()),
+                            None => bail!(
+                                "Malformed [package.metadata.cratify].profile in crate '{}': expected string, got {:?}",
+                                name,
+                                p
+                            ),
+                        },
+                        None => None,
+                    }
+                } else {
+                    bail!(
+                        "Malformed [package.metadata.cratify] in crate '{}': expected table, got {:?}",
+                        name,
+                        cratify
+                    );
+                }
+            } else {
+                None
+            }
+        } else {
+            None
+        };
 
         if let Some(ref prof) = cratify_profile {
             cratify_profiles.insert(name.clone(), prof.clone());
         }
 
-        // 2. Extract capability metadata ([package.metadata.capability])
+        // 2. Extract capability metadata ([package.metadata.capability]) strictly
         let cap_meta_val = crate_parsed
             .get("package")
             .and_then(|p| p.get("metadata"))
-            .and_then(|m| m.get("capability"))
-            .cloned();
+            .and_then(|m| m.get("capability"));
 
-        let cap_meta: Option<CrateCapabilityMetadata> =
-            cap_meta_val.and_then(|m| serde_json::from_value(serde_json::to_value(m).ok()?).ok());
+        let cap_meta: Option<CrateCapabilityMetadata> = match cap_meta_val {
+            Some(val) => {
+                let json_val = serde_json::to_value(val).with_context(|| {
+                    format!(
+                        "converting [package.metadata.capability] to json in crate '{}'",
+                        name
+                    )
+                })?;
+                let meta: CrateCapabilityMetadata =
+                    serde_json::from_value(json_val).with_context(|| {
+                        format!(
+                            "Malformed [package.metadata.capability] in crate '{}'",
+                            name
+                        )
+                    })?;
+                Some(meta)
+            }
+            None => None,
+        };
 
         let ring = cap_meta.as_ref().and_then(|m| m.ring);
         let profile = cap_meta
@@ -520,27 +673,25 @@ pub fn scan_workspace(
             profiles.entry(p.clone()).or_default().push(name.clone());
         }
 
-        // Extract and audit dependencies (one-way boundary: no edge to Devtools allowed)
+        // Extract and audit dependencies across all sections (one-way boundary: no edge to Devtools allowed)
         let mut dependencies = Vec::new();
-        if let Some(deps_table) = crate_parsed.get("dependencies").and_then(|d| d.as_table()) {
-            for (dep_name, dep_val) in deps_table {
-                dependencies.push(dep_name.clone());
-                if dep_name.to_lowercase().contains("devtools") {
-                    bail!(
-                        "Forbidden dependency '{}' in crate '{}': Aaroneous cannot depend on Devtools",
-                        dep_name,
-                        name
-                    );
+        for table_name in ["dependencies", "dev-dependencies", "build-dependencies"] {
+            if let Some(table) = crate_parsed.get(table_name).and_then(|t| t.as_table()) {
+                let found = check_no_devtools_deps(table, &name, table_name)?;
+                if table_name == "dependencies" {
+                    dependencies = found;
                 }
-                if let Some(path_str) = dep_val.get("path").and_then(|p| p.as_str())
-                    && path_str.to_lowercase().contains("devtools")
-                {
-                    bail!(
-                        "Forbidden dependency path '{}' for crate '{}' -> '{}': Aaroneous cannot depend on Devtools",
-                        path_str,
-                        name,
-                        dep_name
-                    );
+            }
+        }
+        if let Some(targets) = crate_parsed.get("target").and_then(|t| t.as_table()) {
+            for (tgt_name, tgt_val) in targets {
+                if let Some(tgt_table) = tgt_val.as_table() {
+                    for sub in ["dependencies", "dev-dependencies", "build-dependencies"] {
+                        if let Some(table) = tgt_table.get(sub).and_then(|t| t.as_table()) {
+                            let sec_name = format!("target.{}.{}", tgt_name, sub);
+                            check_no_devtools_deps(table, &name, &sec_name)?;
+                        }
+                    }
                 }
             }
         }
@@ -583,7 +734,6 @@ pub fn scan_workspace(
 
     let payload = FingerprintPayload {
         schema_version: SCHEMA_VERSION,
-        workspace_root: &normalized_root,
         git_revision: &normalized_expected_rev,
         crates: &crates,
         tools: &tools,
@@ -1080,5 +1230,407 @@ aaroneous-devtools = { path = "../../aaroneous-devtools" }
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("Aaroneous cannot depend on Devtools"));
+    }
+
+    #[test]
+    fn allowed_gates_match_gate_rs_catalog() {
+        let names: Vec<&str> = ALLOWED_GATES.iter().map(|g| g.name).collect();
+        assert!(names.contains(&"check-encoding"));
+        assert!(names.contains(&"fmt"));
+        assert!(names.contains(&"clippy"));
+        assert!(names.contains(&"check-native"));
+        assert!(names.contains(&"check-deps-policy"));
+        assert!(names.contains(&"check-audit"));
+        assert!(names.contains(&"check-semver"));
+        assert!(names.contains(&"check-workspace"));
+        assert!(names.contains(&"check-portable-core"));
+        assert!(names.contains(&"test-workspace"));
+        assert!(names.contains(&"ast-audit"));
+        assert!(names.contains(&"check-stubs"));
+        assert!(names.contains(&"test-emulator"));
+        assert!(names.contains(&"check-unwraps"));
+        assert!(names.contains(&"check-deps"));
+        assert!(names.contains(&"check-release"));
+        assert!(names.contains(&"check-optional-features"));
+        assert!(names.contains(&"check-iroh-feature"));
+        assert!(names.contains(&"gate"));
+    }
+
+    #[test]
+    fn rejects_malformed_capability_metadata() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+
+        let _ = Command::new("git")
+            .args(["init"])
+            .current_dir(root)
+            .status()
+            .unwrap();
+        let _ = Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(root)
+            .status();
+        let _ = Command::new("git")
+            .args(["config", "user.email", "test@test.local"])
+            .current_dir(root)
+            .status();
+
+        let root_toml = root.join("Cargo.toml");
+        fs::write(&root_toml, "[workspace]\nmembers = [\"crates/bad_meta\"]\n").unwrap();
+
+        let crate_dir = root.join("crates").join("bad_meta");
+        fs::create_dir_all(&crate_dir).unwrap();
+        let crate_toml = crate_dir.join("Cargo.toml");
+        fs::write(
+            &crate_toml,
+            r#"[package]
+name = "bad_meta"
+version = "0.1.0"
+
+[package.metadata.capability]
+ring = "not-a-number"
+profile = ["test"]
+"#,
+        )
+        .unwrap();
+
+        let _ = Command::new("git")
+            .args(["add", "."])
+            .current_dir(root)
+            .status();
+        let _ = Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(root)
+            .status();
+
+        let actual_rev = resolve_git_revision(root).unwrap();
+        let result = scan_workspace(root, &actual_rev, None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("Malformed [package.metadata.capability] in crate 'bad_meta'"),
+            "Error was: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn rejects_dirty_tracked_tree() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+
+        let _ = Command::new("git")
+            .args(["init"])
+            .current_dir(root)
+            .status()
+            .unwrap();
+        let _ = Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(root)
+            .status();
+        let _ = Command::new("git")
+            .args(["config", "user.email", "test@test.local"])
+            .current_dir(root)
+            .status();
+
+        let root_toml = root.join("Cargo.toml");
+        fs::write(&root_toml, "[workspace]\nmembers = [\"crates/crate_a\"]\n").unwrap();
+
+        let crate_dir = root.join("crates").join("crate_a");
+        fs::create_dir_all(&crate_dir).unwrap();
+        let crate_toml = crate_dir.join("Cargo.toml");
+        fs::write(
+            &crate_toml,
+            r#"[package]
+name = "crate_a"
+version = "0.1.0"
+"#,
+        )
+        .unwrap();
+
+        let _ = Command::new("git")
+            .args(["add", "."])
+            .current_dir(root)
+            .status();
+        let _ = Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(root)
+            .status();
+
+        let actual_rev = resolve_git_revision(root).unwrap();
+
+        // Manifest passes on clean commit
+        assert!(scan_workspace(root, &actual_rev, None).is_ok());
+
+        // Modify tracked file without committing
+        fs::write(
+            &crate_toml,
+            r#"[package]
+name = "crate_a"
+version = "0.2.0"
+"#,
+        )
+        .unwrap();
+
+        // Manifest must fail because tracked tree is dirty
+        let result = scan_workspace(root, &actual_rev, None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("uncommitted modifications"),
+            "Error was: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn fingerprint_is_path_independent() {
+        let temp1 = tempfile::tempdir().unwrap();
+        let root1 = temp1.path();
+
+        let _ = Command::new("git")
+            .args(["init"])
+            .current_dir(root1)
+            .status()
+            .unwrap();
+        let _ = Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(root1)
+            .status();
+        let _ = Command::new("git")
+            .args(["config", "user.email", "test@test.local"])
+            .current_dir(root1)
+            .status();
+
+        let root_toml = root1.join("Cargo.toml");
+        fs::write(
+            &root_toml,
+            "[workspace]\nmembers = [\"crates/test_crate\"]\n",
+        )
+        .unwrap();
+
+        let crate_dir = root1.join("crates").join("test_crate");
+        fs::create_dir_all(&crate_dir).unwrap();
+        let crate_toml = crate_dir.join("Cargo.toml");
+        fs::write(
+            &crate_toml,
+            r#"[package]
+name = "test_crate"
+version = "0.1.0"
+
+[package.metadata.cratify]
+profile = "control"
+"#,
+        )
+        .unwrap();
+
+        let _ = Command::new("git")
+            .args(["add", "."])
+            .current_dir(root1)
+            .status();
+        let _ = Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(root1)
+            .status();
+
+        let rev = resolve_git_revision(root1).unwrap();
+
+        let temp2 = tempfile::tempdir().unwrap();
+        let clone_dir = temp2.path().join("cloned_checkout");
+        let clone_status = Command::new("git")
+            .args([
+                "clone",
+                root1.to_str().unwrap(),
+                clone_dir.to_str().unwrap(),
+            ])
+            .status()
+            .unwrap();
+        assert!(clone_status.success());
+
+        let manifest1 = scan_workspace(root1, &rev, None).unwrap();
+        let manifest2 = scan_workspace(&clone_dir, &rev, None).unwrap();
+
+        // Fingerprints must be strictly identical even though root1 and clone_dir have completely different absolute paths
+        assert_eq!(manifest1.fingerprint, manifest2.fingerprint);
+    }
+
+    #[test]
+    fn rejects_missing_member_cargo_toml() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+
+        let _ = Command::new("git")
+            .args(["init"])
+            .current_dir(root)
+            .status()
+            .unwrap();
+        let _ = Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(root)
+            .status();
+        let _ = Command::new("git")
+            .args(["config", "user.email", "test@test.local"])
+            .current_dir(root)
+            .status();
+
+        let root_toml = root.join("Cargo.toml");
+        fs::write(
+            &root_toml,
+            "[workspace]\nmembers = [\"crates/missing_toml\"]\n",
+        )
+        .unwrap();
+
+        let crate_dir = root.join("crates").join("missing_toml");
+        fs::create_dir_all(&crate_dir).unwrap();
+        // Do NOT create Cargo.toml in crate_dir
+
+        let _ = Command::new("git")
+            .args(["add", "."])
+            .current_dir(root)
+            .status();
+        let _ = Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(root)
+            .status();
+
+        let actual_rev = resolve_git_revision(root).unwrap();
+        let result = scan_workspace(root, &actual_rev, None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("does not have a Cargo.toml"),
+            "Error was: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn rejects_untracked_files_in_workspace() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+
+        let _ = Command::new("git")
+            .args(["init"])
+            .current_dir(root)
+            .status()
+            .unwrap();
+        let _ = Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(root)
+            .status();
+        let _ = Command::new("git")
+            .args(["config", "user.email", "test@test.local"])
+            .current_dir(root)
+            .status();
+
+        let root_toml = root.join("Cargo.toml");
+        fs::write(
+            &root_toml,
+            "[workspace]\nmembers = [\"crates/valid_crate\"]\n",
+        )
+        .unwrap();
+
+        let crate_dir = root.join("crates").join("valid_crate");
+        fs::create_dir_all(&crate_dir).unwrap();
+        let crate_toml = crate_dir.join("Cargo.toml");
+        fs::write(
+            &crate_toml,
+            r#"[package]
+name = "valid_crate"
+version = "0.1.0"
+
+[package.metadata.cratify]
+profile = "control"
+"#,
+        )
+        .unwrap();
+
+        let _ = Command::new("git")
+            .args(["add", "."])
+            .current_dir(root)
+            .status();
+        let _ = Command::new("git")
+            .args(["commit", "-m", "init"])
+            .current_dir(root)
+            .status();
+
+        let actual_rev = resolve_git_revision(root).unwrap();
+        assert!(scan_workspace(root, &actual_rev, None).is_ok());
+
+        // Create an untracked file in the workspace
+        let untracked_file = root.join("untracked_probe.txt");
+        fs::write(&untracked_file, "uncommitted contents").unwrap();
+
+        let result = scan_workspace(root, &actual_rev, None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("untracked") || err.contains("dirty tree"),
+            "Error was: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn rejects_untracked_member_cargo_toml() {
+        let temp = tempfile::tempdir().unwrap();
+        let root = temp.path();
+
+        let _ = Command::new("git")
+            .args(["init"])
+            .current_dir(root)
+            .status()
+            .unwrap();
+        let _ = Command::new("git")
+            .args(["config", "user.name", "Test"])
+            .current_dir(root)
+            .status();
+        let _ = Command::new("git")
+            .args(["config", "user.email", "test@test.local"])
+            .current_dir(root)
+            .status();
+
+        // Commit root Cargo.toml that references crates/untracked_crate
+        let root_toml = root.join("Cargo.toml");
+        fs::write(
+            &root_toml,
+            "[workspace]\nmembers = [\"crates/untracked_crate\"]\n",
+        )
+        .unwrap();
+
+        let _ = Command::new("git")
+            .args(["add", "."])
+            .current_dir(root)
+            .status();
+        let _ = Command::new("git")
+            .args(["commit", "-m", "init root"])
+            .current_dir(root)
+            .status();
+
+        // Create crates/untracked_crate/Cargo.toml without committing it
+        let crate_dir = root.join("crates").join("untracked_crate");
+        fs::create_dir_all(&crate_dir).unwrap();
+        let crate_toml = crate_dir.join("Cargo.toml");
+        fs::write(
+            &crate_toml,
+            r#"[package]
+name = "untracked_crate"
+version = "0.1.0"
+
+[package.metadata.cratify]
+profile = "control"
+"#,
+        )
+        .unwrap();
+
+        let actual_rev = resolve_git_revision(root).unwrap();
+        let result = scan_workspace(root, &actual_rev, None);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(
+            err.contains("untracked") || err.contains("not tracked in git"),
+            "Error was: {}",
+            err
+        );
     }
 }
