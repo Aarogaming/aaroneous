@@ -87,21 +87,27 @@ pub struct McpAppState {
 
 pub struct HttpServer {
     addr: SocketAddr,
+    cfg: McpServiceConfig,
     auth: Option<Arc<tokio::sync::RwLock<crate::mcp_service::ApiKeyAuth>>>,
 }
 
 impl HttpServer {
-    pub fn new(addr: SocketAddr, _cfg: McpServiceConfig) -> Self {
-        Self { addr, auth: None }
+    pub fn new(addr: SocketAddr, cfg: McpServiceConfig) -> Self {
+        Self {
+            addr,
+            cfg,
+            auth: None,
+        }
     }
 
     pub fn with_auth(
         addr: SocketAddr,
-        _cfg: McpServiceConfig,
+        cfg: McpServiceConfig,
         auth: Arc<tokio::sync::RwLock<crate::mcp_service::ApiKeyAuth>>,
     ) -> Self {
         Self {
             addr,
+            cfg,
             auth: Some(auth),
         }
     }
@@ -111,17 +117,13 @@ impl HttpServer {
     }
 
     /// Build and start the MCP HTTP+SSE server.
-    pub async fn run(
-        self,
-        service: Arc<McpService>,
-        cfg: McpServiceConfig,
-    ) -> Result<(), Box<dyn std::error::Error>> {
+    pub async fn run(self, service: Arc<McpService>) -> Result<(), Box<dyn std::error::Error>> {
         let auth = match self.auth {
             Some(a) => a,
             None => {
                 let mut api_auth =
                     crate::mcp_service::ApiKeyAuth::with_clock(service.clock.clone());
-                if let Some(ref key) = cfg.auth_key {
+                if let Some(ref key) = self.cfg.auth_key {
                     api_auth.register_key_with_class(
                         key,
                         "operator",
