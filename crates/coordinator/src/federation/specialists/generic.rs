@@ -192,7 +192,7 @@ impl GenericSpecialist {
         }
     }
 
-    /// Attach a `MockProvider` LLM (no GGUF required â€” useful for dev/tests).
+    /// Attach a `MockProvider` LLM (no GGUF required — useful for dev/tests).
     pub async fn with_mock_llm(mut self) -> anyhow::Result<Self> {
         let config = LLMConfig {
             provider_type: ProviderType::Mock,
@@ -209,6 +209,9 @@ impl GenericSpecialist {
             local_endpoint: None,
             local_model: None,
             gemini_base_url: None,
+            explicit_model_name: None,
+            gguf_context_size: None,
+            gguf_threads: None,
         };
         self.llm = Some(Arc::new(LLMClient::new(config).await?));
         Ok(self)
@@ -239,6 +242,9 @@ impl GenericSpecialist {
             local_endpoint: None,
             local_model: None,
             gemini_base_url: None,
+            explicit_model_name: None,
+            gguf_context_size: None,
+            gguf_threads: None,
         };
         let client = LLMClient::new(config).await.unwrap();
         info!(
