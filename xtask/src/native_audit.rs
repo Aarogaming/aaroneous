@@ -194,10 +194,20 @@ const NATIVE_INDICATORS: &[&str] = &[
 ];
 
 pub fn run() -> Result<()> {
-    println!("=== Native Dependency Boundary Audit ===");
+    run_with_root(std::path::Path::new("."))
+}
 
-    let policy_str = std::fs::read_to_string("native-policy.toml")
-        .context("Failed to read native-policy.toml")?;
+pub fn run_with_root(workspace_root: &std::path::Path) -> Result<()> {
+    eprintln!("=== Native Dependency Boundary Audit ===");
+
+    let policy_path =
+        if workspace_root.as_os_str().is_empty() || workspace_root == std::path::Path::new(".") {
+            std::path::PathBuf::from("native-policy.toml")
+        } else {
+            workspace_root.join("native-policy.toml")
+        };
+    let policy_str = std::fs::read_to_string(&policy_path)
+        .with_context(|| format!("Failed to read {}", policy_path.display()))?;
     let raw_policy: RawPolicy =
         toml::from_str(&policy_str).context("Failed to parse native-policy.toml")?;
 
@@ -213,9 +223,10 @@ pub fn run() -> Result<()> {
     let mut all_violations = Vec::new();
 
     for target in &targets {
-        println!("--- auditing target: {target} ---");
-        let violations = audit_target(target, &allowed, &tooling_profile_crates)
-            .with_context(|| format!("failed to audit target {target}"))?;
+        eprintln!("--- auditing target: {target} ---");
+        let violations =
+            audit_target_with_root(workspace_root, target, &allowed, &tooling_profile_crates)
+                .with_context(|| format!("failed to audit target {target}"))?;
         for v in violations {
             all_violations.push(format!("[{target}] {v}"));
         }
@@ -232,7 +243,7 @@ pub fn run() -> Result<()> {
         bail!("Native Dependency Boundary Audit failed.");
     }
 
-    println!(
+    eprintln!(
         "Native Dependency Boundary Audit passed ({} target(s), {} allowlist entries).",
         targets.len(),
         allowed.len()
@@ -240,20 +251,25 @@ pub fn run() -> Result<()> {
     Ok(())
 }
 
-fn audit_target(
+fn audit_target_with_root(
+    workspace_root: &std::path::Path,
     target: &str,
     allowed: &[AllowedPackage],
     tooling_profile_crates: &HashSet<String>,
 ) -> Result<Vec<String>> {
-    let output = Command::new("cargo")
-        .args([
-            "metadata",
-            "--format-version",
-            "1",
-            "--locked",
-            "--filter-platform",
-            target,
-        ])
+    let mut cmd = Command::new("cargo");
+    cmd.args([
+        "metadata",
+        "--format-version",
+        "1",
+        "--locked",
+        "--filter-platform",
+        target,
+    ]);
+    if !workspace_root.as_os_str().is_empty() && workspace_root != std::path::Path::new(".") {
+        cmd.current_dir(workspace_root);
+    }
+    let output = cmd
         .output()
         .with_context(|| format!("Failed to run cargo metadata for target {target}"))?;
 
