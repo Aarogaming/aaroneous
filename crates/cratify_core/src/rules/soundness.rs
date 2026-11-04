@@ -35,7 +35,7 @@ impl<'ast> Visit<'ast> for SoundnessVisitor<'_> {
     }
     fn visit_item_impl(&mut self, node: &'ast syn::ItemImpl) {
         if node.unsafety.is_some()
-            && node.trait_.as_ref().is_some_and(|(_, path, _)| {
+            && node.trait_.as_ref().is_some_and(|(path, _)| {
                 path.segments
                     .last()
                     .is_some_and(|s| matches!(s.ident.to_string().as_str(), "Pod" | "Zeroable"))
@@ -48,5 +48,35 @@ impl<'ast> Visit<'ast> for SoundnessVisitor<'_> {
             });
         }
         visit::visit_item_impl(self, node);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn detects_unsafe_pod_impl() {
+        let code_unsafe = "unsafe impl Pod for X {}";
+        let file_unsafe: syn::File = syn::parse_str(code_unsafe).unwrap();
+        let mut visitor_unsafe = SoundnessVisitor {
+            file_path: Path::new("test.rs"),
+            violations: Vec::new(),
+        };
+        visitor_unsafe.visit_file(&file_unsafe);
+        assert_eq!(visitor_unsafe.violations.len(), 1);
+        assert_eq!(
+            visitor_unsafe.violations[0].rule,
+            "manual-pod-implementation"
+        );
+
+        let code_safe = "impl Pod for X {}";
+        let file_safe: syn::File = syn::parse_str(code_safe).unwrap();
+        let mut visitor_safe = SoundnessVisitor {
+            file_path: Path::new("test.rs"),
+            violations: Vec::new(),
+        };
+        visitor_safe.visit_file(&file_safe);
+        assert_eq!(visitor_safe.violations.len(), 0);
     }
 }
