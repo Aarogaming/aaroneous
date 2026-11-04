@@ -35,6 +35,45 @@ pub enum ExecutionStatus {
     InvalidRequest,
 }
 
+/// Distinct capability classes governing external-control authorization and privilege boundaries.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum CapabilityClass {
+    /// Read-only inspection of state, metrics, knowledge, and tool discovery.
+    ReadOnlyInspection = 0,
+    /// Bounded proposal generation, AST transformations, and dry-run plans without state mutation.
+    BoundedProposal = 1,
+    /// Static analysis, AST auditing, verification checks, and security diagnostics.
+    Verification = 2,
+    /// State mutations, file writes, code execution, and platform/device actuation.
+    Mutation = 3,
+}
+
+impl CapabilityClass {
+    /// Classify a capability / tool based on its name and optional category.
+    pub fn classify_tool(name: &str, category: Option<&str>) -> Self {
+        if let Some(cat) = category {
+            match cat {
+                "knowledge" | "memory" | "metric" | "telemetry" | "info" => {
+                    return Self::ReadOnlyInspection;
+                }
+                "proposal" | "plan" | "suggest" => return Self::BoundedProposal,
+                "security" | "review" | "audit" | "compliance" => return Self::Verification,
+                "code" | "platform" | "mutate" | "actuation" => return Self::Mutation,
+                _ => {}
+            }
+        }
+
+        let prefix = name.split('.').next().unwrap_or(name);
+        match prefix {
+            "knowledge" | "system" | "metric" | "info" | "status" => Self::ReadOnlyInspection,
+            "proposal" | "plan" | "ast_preview" => Self::BoundedProposal,
+            "security" | "review" | "audit" | "verify" => Self::Verification,
+            _ => Self::Mutation,
+        }
+    }
+}
+
 impl CapabilityResult {
     /// Create successful result
     pub fn success(
@@ -110,6 +149,8 @@ pub struct Capability {
     pub requires_auth: bool,
     /// Whether this capability mutates state
     pub is_mutating: bool,
+    /// Explicit capability class governing authorization level
+    pub capability_class: CapabilityClass,
     /// Example request/response
     #[serde(skip_serializing_if = "Option::is_none")]
     pub examples: Option<HashMap<String, serde_json::Value>>,
@@ -125,6 +166,8 @@ impl Capability {
         let domain = domain.into();
         let method = method.into();
         let id = format!("{}.{}", domain, method);
+        let capability_class = CapabilityClass::classify_tool(&id, Some(&domain));
+        let is_mutating = capability_class == CapabilityClass::Mutation;
 
         Self {
             id,
@@ -141,9 +184,19 @@ impl Capability {
                 "websocket".to_string(),
             ],
             requires_auth: true,
-            is_mutating: false,
+            is_mutating,
+            capability_class,
             examples: None,
         }
+    }
+
+    /// Set capability class
+    pub fn with_capability_class(mut self, class: CapabilityClass) -> Self {
+        self.capability_class = class;
+        if class == CapabilityClass::Mutation {
+            self.is_mutating = true;
+        }
+        self
     }
 
     /// Set version
@@ -269,5 +322,42 @@ mod tests {
         let result = CapabilityResult::error("req-1", "Service unavailable", 50);
         assert_eq!(result.status, ExecutionStatus::Failed);
         assert!(result.error.is_some());
+    }
+
+    #[test]
+    fn test_capability_class_classification_and_hierarchy() {
+        assert!(CapabilityClass::ReadOnlyInspection < CapabilityClass::BoundedProposal);
+        assert!(CapabilityClass::BoundedProposal < CapabilityClass::Verification);
+        assert!(CapabilityClass::Verification < CapabilityClass::Mutation);
+
+        assert_eq!(
+            CapabilityClass::classify_tool("knowledge.query", None),
+            CapabilityClass::ReadOnlyInspection
+        );
+        assert_eq!(
+            CapabilityClass::classify_tool("proposal.draft_patch", None),
+            CapabilityClass::BoundedProposal
+        );
+        assert_eq!(
+            CapabilityClass::classify_tool("security.audit", None),
+            CapabilityClass::Verification
+        );
+        assert_eq!(
+            CapabilityClass::classify_tool("review.audit_source", None),
+            CapabilityClass::Verification
+        );
+        assert_eq!(
+            CapabilityClass::classify_tool("code.execute", None),
+            CapabilityClass::Mutation
+        );
+        assert_eq!(
+            CapabilityClass::classify_tool("platform.actuate", None),
+            CapabilityClass::Mutation
+        );
+        // Default to mutation for unknown / unclassified tools (least privilege)
+        assert_eq!(
+            CapabilityClass::classify_tool("unknown_tool", None),
+            CapabilityClass::Mutation
+        );
     }
 }
