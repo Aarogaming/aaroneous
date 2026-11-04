@@ -187,6 +187,11 @@ Full specification: [docs/CRATIFY_SPEC.md](docs/CRATIFY_SPEC.md) (v2, owner-appr
 
 Agents must NEVER declare work complete based solely on `cargo check`. The single command below (or its shim) runs every gate below, in order, and is mechanically checked to cover the same verification `.github/workflows/ci.yml`'s `check-and-test` job, `security-audit.yml`, and `semver-checks.yml` run between them (see `xtask/src/gate.rs`'s `tests` module) — running it locally covers all three workflows, not just `check-and-test`, **within the limits spelled out after gate 3.8 below** (it is not a structural proof of full equivalence; read that note before treating a local green run as interchangeable with a green CI run). (Before 2026-10-03, gates 3.6-3.8 below didn't exist and even that bounded claim was false for the two security/semver workflows specifically — a run could report every gate green and still fail CI on `cargo-deny`, `cargo-audit`, or `cargo-semver-checks`, which `cargo xtask gate` never invoked. See the coordination-system audit that found this. Don't let the claim drift out of sync with reality again — if you add a CI workflow, add its matching gate here too.)
 
+### Cost-Layered Verification Tiers (Packet P04 / Lane C85)
+For fast local iteration and pre-commit checks, Aaroneous provides cost-layered verification tiers:
+- **Tier 0: Preflight** (`cargo xtask preflight`): Runs low-cost static, structural, format, encoding, AST invariant, unwrap/panic ratchet, profile-direction ratchet, and native dependency boundary checks in < 15 seconds with zero product workspace compilation (invokes pre-built or dedicated tooling crates only). Supports `--json` and `--output <PATH>` for structured, machine-readable reporting and fingerprinting.
+- **Full Verification** (`cargo xtask gate`): Comprehensive sequential verification running all tiers (Tier 0 Preflight, Tier 1 Supply Chain, Tier 2 Compilation & Cross-Targets, Tier 3 Execution & Test Suites). Passing `cargo xtask gate` remains mandatory before declaring work complete.
+
 ```bash
 # Full Self-Verification Gate Script — runs gates 1-12 below
 bash scripts/agent_check.sh
