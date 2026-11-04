@@ -48,6 +48,9 @@ impl IntentAnalyzer {
             rate_limit: None,
             local_endpoint: None,
             local_model: None,
+            explicit_model_name: None,
+            gguf_context_size: None,
+            gguf_threads: None,
         };
         let client = Arc::new(LLMClient::new(config).await?);
         Ok(Self::new().with_llm(client))
