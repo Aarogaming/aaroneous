@@ -49,6 +49,7 @@ pub struct McpService {
     pub capability_broker: Arc<crate::capability_broker::CapabilityBroker>,
     pub request_count: Arc<AtomicU64>,
     pub workspace_root: PathBuf,
+    pub clock: Arc<dyn crate::mcp_service::Clock>,
     started_at: std::time::Instant,
 }
 
@@ -60,16 +61,33 @@ impl Default for McpService {
 
 impl McpService {
     pub fn new(config: ServiceConfig) -> Self {
-        Self::with_workspace_root(config, PathBuf::from("."))
+        Self::with_workspace_root_and_clock(
+            config,
+            PathBuf::from("."),
+            Arc::new(crate::mcp_service::SystemClock),
+        )
     }
 
     pub fn with_workspace_root(config: ServiceConfig, workspace_root: PathBuf) -> Self {
+        Self::with_workspace_root_and_clock(
+            config,
+            workspace_root,
+            Arc::new(crate::mcp_service::SystemClock),
+        )
+    }
+
+    pub fn with_workspace_root_and_clock(
+        config: ServiceConfig,
+        workspace_root: PathBuf,
+        clock: Arc<dyn crate::mcp_service::Clock>,
+    ) -> Self {
         Self {
             config,
             tools: Arc::new(RwLock::new(Vec::new())),
             capability_broker: Arc::new(crate::capability_broker::CapabilityBroker::new()),
             request_count: Arc::new(AtomicU64::new(0)),
             workspace_root,
+            clock,
             started_at: std::time::Instant::now(),
         }
     }
@@ -121,36 +139,34 @@ impl McpService {
         &self.workspace_root
     }
 
-    /// Issues a fresh, self-signed `CapabilityToken` for this service's own
-    /// dispatch of an incoming request.
+    /// Issues a scoped `CapabilityToken` strictly bound to the authenticated caller,
+    /// specific tool requested, caller's sandbox policy, and validated remaining lifetime.
     ///
-    /// This is a service-level token, not a per-caller one: it authenticates
-    /// "this request is going through McpService's own broker," not "this
-    /// specific remote client is authorized." That's the honest current
-    /// state of Phase 38 integration here — it makes `execute_tool_with_token`
-    /// (signature verification, expiration, sandbox-policy checks, and
-    /// thermal-backpressure gating) real and load-bearing on every tool
-    /// dispatch instead of dead code exercised only by its own unit tests,
-    /// without pretending there's a multi-tenant auth system that doesn't
-    /// exist yet. Accepting a caller-supplied token in `tools/call`'s params
-    /// (verified instead of this one) is the natural next slice once
-    /// per-caller authorization is actually wanted.
-    fn issue_dispatch_token(&self) -> crate::capability_broker::CapabilityToken {
-        let now_ms = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
+    /// Never grants wildcard `*` or escalates beyond caller authority.
+    pub fn issue_caller_dispatch_token(
+        &self,
+        caller: &crate::mcp_service::CallerContext,
+        tool_name: &str,
+        now_ms: u64,
+    ) -> crate::capability_broker::CapabilityToken {
+        let ttl_ms = caller.expires_at_ms.saturating_sub(now_ms).clamp(1, 60_000);
+
         self.capability_broker.issue_token(
-            "mcp-service",
-            vec!["*".to_string()],
-            crate::capability_broker::SandboxPolicy::FullPrivilege,
-            60_000,
+            &caller.principal_id,
+            vec![tool_name.to_string()], // Strictly scoped to tool_name, NO wildcard!
+            caller.sandbox_policy,
+            ttl_ms,
             now_ms,
         )
     }
 
-    /// Handle JSON-RPC request adhering to Model Context Protocol (MCP) 2024-11-05
-    pub async fn handle_jsonrpc(&self, request: serde_json::Value) -> JsonRpcResponse {
+    /// Handle JSON-RPC request evaluated strictly against an authenticated CallerContext and injected monotonic time.
+    pub async fn handle_jsonrpc_with_context(
+        &self,
+        request: serde_json::Value,
+        caller: &crate::mcp_service::CallerContext,
+        now_ms: u64,
+    ) -> JsonRpcResponse {
         self.increment_request();
         let id = request.get("id").cloned();
         let method = match request.get("method").and_then(|m| m.as_str()) {
@@ -168,15 +184,41 @@ impl McpService {
                     },
                     "serverInfo": {
                         "name": "aaroneous-mcp",
-                        "version": env!("CARGO_PKG_VERSION")
+                        "version": env!("CARGO_PKG_VERSION"),
+                        "callerPrincipal": caller.principal_id,
+                        "callerMaxCapabilityClass": format!("{:?}", caller.max_capability_class),
                     }
                 }),
             ),
             "ping" => JsonRpcResponse::success(id, serde_json::json!({ "status": "pong" })),
             "tools/list" => {
+                if caller.is_revoked {
+                    return JsonRpcResponse::err(
+                        id,
+                        -32001,
+                        "Forbidden: caller principal is revoked",
+                    );
+                }
+                if caller.is_expired_at(now_ms) {
+                    return JsonRpcResponse::err(
+                        id,
+                        -32001,
+                        "Forbidden: caller authorization has expired",
+                    );
+                }
+
                 let descriptors = self.capability_broker.list_tools();
                 let tool_list: Vec<serde_json::Value> = descriptors
                     .into_iter()
+                    .filter(|d| {
+                        let required_class = crate::mcp_service::CapabilityClass::classify_tool(
+                            &d.name,
+                            Some(&d.category),
+                        );
+                        caller
+                            .is_authorized_for(&d.name, required_class, now_ms)
+                            .is_ok()
+                    })
                     .map(|d| {
                         serde_json::json!({
                             "name": d.name,
@@ -213,8 +255,32 @@ impl McpService {
                     .cloned()
                     .unwrap_or_else(|| serde_json::json!({}));
 
-                let token = self.issue_dispatch_token();
-                let now_ms = token.issued_at_ms;
+                // Strict authorization: find tool category and required capability class
+                let category = self
+                    .capability_broker
+                    .list_tools()
+                    .into_iter()
+                    .find(|t| t.name == tool_name)
+                    .map(|t| t.category);
+                let required_class = crate::mcp_service::CapabilityClass::classify_tool(
+                    tool_name,
+                    category.as_deref(),
+                );
+
+                // Note: Caller-supplied `params.caller` or `params.scope` is completely ignored;
+                // only the authenticated `caller` argument from transport context is checked.
+                if let Err(auth_err) = caller.is_authorized_for(tool_name, required_class, now_ms) {
+                    return JsonRpcResponse::err(
+                        id,
+                        -32001,
+                        &format!(
+                            "Authorization denied for tool '{}': {}",
+                            tool_name, auth_err
+                        ),
+                    );
+                }
+
+                let token = self.issue_caller_dispatch_token(caller, tool_name, now_ms);
                 let outcome = self
                     .capability_broker
                     .execute_tool_with_token(&token, tool_name, arguments, now_ms)
@@ -247,6 +313,14 @@ impl McpService {
             }
             _ => JsonRpcResponse::err(id, -32601, &format!("Method not found: {}", method)),
         }
+    }
+
+    /// Handle JSON-RPC request using the explicit local development compatibility adapter.
+    pub async fn handle_jsonrpc(&self, request: serde_json::Value) -> JsonRpcResponse {
+        let now_ms = self.clock.now_ms();
+        let compat_caller = crate::mcp_service::CallerContext::local_development(now_ms);
+        self.handle_jsonrpc_with_context(request, &compat_caller, now_ms)
+            .await
     }
 }
 
@@ -421,5 +495,295 @@ mod tests {
     #[test]
     fn test_service_creation() {
         let _service = McpService::new(ServiceConfig::default());
+    }
+
+    #[tokio::test]
+    async fn test_read_only_caller_permitted_for_query_and_rejected_for_mutation() {
+        let clock = Arc::new(crate::mcp_service::MockClock::new(1_000_000));
+        let service = McpService::with_workspace_root_and_clock(
+            ServiceConfig::default(),
+            PathBuf::from("."),
+            clock,
+        );
+        service.register_standard_tools().await;
+
+        let read_only_caller = crate::mcp_service::CallerContext {
+            principal_id: "read-only-observer".to_string(),
+            max_capability_class: crate::mcp_service::CapabilityClass::ReadOnlyInspection,
+            allowed_scopes: vec!["*".to_string()],
+            sandbox_policy: crate::capability_broker::SandboxPolicy::ReadConstrained,
+            issued_at_ms: 1_000_000,
+            expires_at_ms: 1_060_000,
+            is_revoked: false,
+            token_id: Some(uuid::Uuid::new_v4()),
+        };
+
+        // Permitted: calling read-only knowledge query tool
+        let query_req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "knowledge.semantic_query",
+                "arguments": { "query": "hypervisor" }
+            }
+        });
+        let query_resp = service
+            .handle_jsonrpc_with_context(query_req, &read_only_caller, 1_000_000)
+            .await;
+        assert!(query_resp.error.is_none());
+        assert_eq!(query_resp.result.unwrap()["isError"], false);
+
+        // Rejected: calling mutating or higher-privilege tool (code.rewrite_pattern)
+        let mutate_req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "code.rewrite_pattern",
+                "arguments": { "pattern": "foo", "replacement": "bar" }
+            }
+        });
+        let mutate_resp = service
+            .handle_jsonrpc_with_context(mutate_req, &read_only_caller, 1_000_000)
+            .await;
+        assert!(mutate_resp.error.is_some());
+        let err = mutate_resp.error.unwrap();
+        assert_eq!(err["code"], -32001);
+        assert!(
+            err["message"]
+                .as_str()
+                .unwrap()
+                .contains("Insufficient capability class")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_wildcard_scope_cannot_escalate_beyond_caller_capability_class() {
+        let service = McpService::new(ServiceConfig::default());
+        service.register_standard_tools().await;
+
+        // Caller has wildcard scope "*" but only Verification capability class
+        let verifier_caller = crate::mcp_service::CallerContext {
+            principal_id: "verifier-bot".to_string(),
+            max_capability_class: crate::mcp_service::CapabilityClass::Verification,
+            allowed_scopes: vec!["*".to_string()], // Wildcard scope claim!
+            sandbox_policy: crate::capability_broker::SandboxPolicy::ReadConstrained,
+            issued_at_ms: 1_000_000,
+            expires_at_ms: 1_060_000,
+            is_revoked: false,
+            token_id: Some(uuid::Uuid::new_v4()),
+        };
+
+        // Permitted: security.audit (Verification class)
+        let audit_req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "security.audit",
+                "arguments": {}
+            }
+        });
+        let audit_resp = service
+            .handle_jsonrpc_with_context(audit_req, &verifier_caller, 1_000_000)
+            .await;
+        assert!(audit_resp.error.is_none());
+
+        // Rejected: code.rewrite_pattern requires Mutation class
+        let mutate_req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "code.rewrite_pattern",
+                "arguments": { "pattern": "a", "replacement": "b" }
+            }
+        });
+        let mutate_resp = service
+            .handle_jsonrpc_with_context(mutate_req, &verifier_caller, 1_000_000)
+            .await;
+        assert!(mutate_resp.error.is_some());
+        let err = mutate_resp.error.unwrap();
+        assert_eq!(err["code"], -32001);
+        assert!(
+            err["message"]
+                .as_str()
+                .unwrap()
+                .contains("Insufficient capability class")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_caller_supplied_fields_in_jsonrpc_body_are_ignored() {
+        let service = McpService::new(ServiceConfig::default());
+        service.register_standard_tools().await;
+
+        let limited_caller = crate::mcp_service::CallerContext {
+            principal_id: "limited-caller".to_string(),
+            max_capability_class: crate::mcp_service::CapabilityClass::ReadOnlyInspection,
+            allowed_scopes: vec!["knowledge.*".to_string()],
+            sandbox_policy: crate::capability_broker::SandboxPolicy::ReadConstrained,
+            issued_at_ms: 1_000_000,
+            expires_at_ms: 1_060_000,
+            is_revoked: false,
+            token_id: Some(uuid::Uuid::new_v4()),
+        };
+
+        // Attacker attempts to spoof their principal and scope in the JSON-RPC request params
+        let spoofed_req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 99,
+            "method": "tools/call",
+            "params": {
+                "name": "code.rewrite_pattern",
+                "arguments": {},
+                "principal": "root",
+                "scopes": ["*"],
+                "capability_class": "mutation"
+            }
+        });
+
+        let resp = service
+            .handle_jsonrpc_with_context(spoofed_req, &limited_caller, 1_000_000)
+            .await;
+        // Spoofing fails: caller context governs
+        assert!(resp.error.is_some());
+        let err = resp.error.unwrap();
+        assert_eq!(err["code"], -32001);
+        assert!(
+            err["message"]
+                .as_str()
+                .unwrap()
+                .contains("Insufficient capability class")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_expired_and_revoked_caller_token_rejected() {
+        let service = McpService::new(ServiceConfig::default());
+        service.register_standard_tools().await;
+
+        let mut caller = crate::mcp_service::CallerContext {
+            principal_id: "tenant-b".to_string(),
+            max_capability_class: crate::mcp_service::CapabilityClass::Mutation,
+            allowed_scopes: vec!["*".to_string()],
+            sandbox_policy: crate::capability_broker::SandboxPolicy::FullPrivilege,
+            issued_at_ms: 1_000_000,
+            expires_at_ms: 1_050_000,
+            is_revoked: false,
+            token_id: Some(uuid::Uuid::new_v4()),
+        };
+
+        let call_req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "knowledge.semantic_query",
+                "arguments": { "query": "test" }
+            }
+        });
+
+        // 1. Expired check at time 1_060_000 (> 1_050_000)
+        let expired_resp = service
+            .handle_jsonrpc_with_context(call_req.clone(), &caller, 1_060_000)
+            .await;
+        assert!(expired_resp.error.is_some());
+        assert!(
+            expired_resp.error.unwrap()["message"]
+                .as_str()
+                .unwrap()
+                .contains("expired")
+        );
+
+        // 2. Revoked check
+        caller.expires_at_ms = 2_000_000;
+        caller.is_revoked = true;
+        let revoked_resp = service
+            .handle_jsonrpc_with_context(call_req, &caller, 1_000_000)
+            .await;
+        assert!(revoked_resp.error.is_some());
+        assert!(
+            revoked_resp.error.unwrap()["message"]
+                .as_str()
+                .unwrap()
+                .contains("revoked")
+        );
+    }
+
+    #[tokio::test]
+    async fn test_rejected_calls_perform_no_effect_and_thermal_checks_run() {
+        let service = McpService::new(ServiceConfig::default());
+        service.register_standard_tools().await;
+
+        // Dirty generation before rejected calls
+        let initial_gen = service.capability_broker.dirty_generation();
+
+        // 1. Rejected call does not advance dirty generation
+        let unauth_caller = crate::mcp_service::CallerContext {
+            principal_id: "unauth".to_string(),
+            max_capability_class: crate::mcp_service::CapabilityClass::ReadOnlyInspection,
+            allowed_scopes: vec!["unrelated.*".to_string()],
+            sandbox_policy: crate::capability_broker::SandboxPolicy::ReadConstrained,
+            issued_at_ms: 1_000_000,
+            expires_at_ms: 1_050_000,
+            is_revoked: false,
+            token_id: Some(uuid::Uuid::new_v4()),
+        };
+
+        let req = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 1,
+            "method": "tools/call",
+            "params": {
+                "name": "knowledge.semantic_query",
+                "arguments": { "query": "test" }
+            }
+        });
+
+        let resp = service
+            .handle_jsonrpc_with_context(req, &unauth_caller, 1_000_000)
+            .await;
+        assert!(resp.error.is_some());
+        assert_eq!(service.capability_broker.dirty_generation(), initial_gen);
+
+        // 2. Thermal backpressure still applies to authorized calls
+        service
+            .capability_broker
+            .set_thermal_backpressure(crate::capability_broker::ThermalBackpressureLevel::Critical);
+
+        let auth_caller = crate::mcp_service::CallerContext {
+            principal_id: "authorized".to_string(),
+            max_capability_class: crate::mcp_service::CapabilityClass::Mutation,
+            allowed_scopes: vec!["*".to_string()],
+            sandbox_policy: crate::capability_broker::SandboxPolicy::FullPrivilege,
+            issued_at_ms: 1_000_000,
+            expires_at_ms: 1_050_000,
+            is_revoked: false,
+            token_id: Some(uuid::Uuid::new_v4()),
+        };
+
+        let req2 = serde_json::json!({
+            "jsonrpc": "2.0",
+            "id": 2,
+            "method": "tools/call",
+            "params": {
+                "name": "knowledge.semantic_query",
+                "arguments": { "query": "test" }
+            }
+        });
+        let resp2 = service
+            .handle_jsonrpc_with_context(req2, &auth_caller, 1_000_000)
+            .await;
+        assert!(resp2.error.is_none());
+        let res_val = resp2.result.unwrap();
+        assert_eq!(res_val["isError"], true);
+        assert!(
+            res_val["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("Thermal backpressure critical")
+        );
     }
 }
