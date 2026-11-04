@@ -21,6 +21,7 @@ fn main() -> Result<()> {
     let subcommand = args.get(1).map(String::as_str).unwrap_or("help");
     match subcommand {
         "gate" => gate::run(),
+        "preflight" => gate::preflight_cli(&args[2..]),
         "check-encoding" => encoding::run(),
         "check-native" => native_audit::run(),
         "check-unwraps" => check_unwraps::run(&args[2..]),
@@ -34,7 +35,7 @@ fn main() -> Result<()> {
             let config = export_wit::WitExportConfig::default();
             export_wit::export_wit(&config).map_err(|e| anyhow::anyhow!(e))
         }
-        "workspace-metadata" => workspace_metadata::run(&args[2..]),
+        "workspace-metadata" | "export-capability-manifest" => workspace_metadata::run(&args[2..]),
         "queue" => {
             println!("=== Launching Local Agent Passive Progress Daemon ===");
             let status = Command::new("pwsh")
@@ -63,13 +64,15 @@ Usage: cargo xtask <subcommand>
 
 Subcommands:
   gate                Run every CI verification gate locally (replaces scripts/agent_check.sh)
+  preflight           Run deterministic cost-layered verification preflight (Tier 0 static checks by default)
   check-encoding      Validate UTF-8/LF compliance across all tracked files
   check-native        Enforce the pure-Rust core boundary and native package allowlist
   check-unwraps       Check unwrap/expect/panic!/assert! counts against the ratchet baseline
                       (--dump-baseline prints current counts in baseline-file format)
   check-deps          Check profile dependency direction against the ratchet baseline
   export-wit          Export WebAssembly Interface Type (WIT) declarations from capabilities
-  workspace-metadata  Scan workspace for capability manifest (MCP discovery, deployment profiles)
+  export-capability-manifest (alias: workspace-metadata)
+                      Export strict workspace capability manifest (--workspace-root <PATH> --git-revision <HEX>)
   queue               Run the passive local agent background progress engine (Ollama GPU)
   install             Install Aaroneous on Windows (copies binaries, sets PATH, creates shortcuts)
   uninstall           Remove Aaroneous from Windows
@@ -79,7 +82,7 @@ Subcommands:
 
 Examples:
   cargo xtask gate
-  cargo xtask workspace-metadata --output manifest.json
+  cargo xtask workspace-metadata --workspace-root . --git-revision <SHA> --output manifest.json
   cargo xtask export-wit
   cargo xtask queue
   cargo xtask install --dir C:\Programs\Aaroneous
