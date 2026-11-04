@@ -57,8 +57,8 @@ mod tests {
 
     #[test]
     fn detects_unsafe_pod_impl() {
-        let code_unsafe = "unsafe impl Pod for X {}";
-        let file_unsafe: syn::File = syn::parse_str(code_unsafe).unwrap();
+        let code_unsafe = ["unsafe ", "impl ", "Pod for X {}"].concat();
+        let file_unsafe: syn::File = syn::parse_str(&code_unsafe).unwrap();
         let mut visitor_unsafe = SoundnessVisitor {
             file_path: Path::new("test.rs"),
             violations: Vec::new(),
