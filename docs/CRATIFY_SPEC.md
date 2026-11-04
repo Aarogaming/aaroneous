@@ -273,6 +273,15 @@ Rules this specification declares but `ast_auditor` does not yet enforce, in ado
 10. Extend the gate's audit scope to `xtask/`, `sdk/`, and `benches/`.
 11. Documentation gate: relative links resolve with exact case, no `file:///` or drive-letter links.
 12. Cost-layered verification contract & preflight tier (Packet P04 / Lane C85). **Enforced** by `cargo xtask preflight` and structured gate tiers in `xtask/src/gate.rs`. Establishes four deterministic tiers (Tier 0: static/structural/ratchet preflight, Tier 1: supply-chain/security, Tier 2: compilation matrix, Tier 3: execution & test suites) with machine-readable JSON output and deterministic stop-on-first-failure, while preserving `cargo xtask gate` as the comprehensive native verification gate.
+13. Base36 Version & Lifecycle Notation Contract (C88 / P05):
+    All component build sheets, virtual-branch lineage stamps, and lifecycle records follow the
+    canonical lowercase Base36 contract (`v1` schema) defined in `core_contracts::base36` and
+    `xtask::base36`:
+    - Strict alphabet: `0123456789abcdefghijklmnopqrstuvwxyz` (uppercase rejected).
+    - Fixed 24-character lifecycle stamps (`Base36Lineage`, 192-bit) with `'0'` left-padding.
+    - Big-endian digit weighting matching numeric magnitude ordering.
+    - Zero sentinel (`"000000000000000000000000"`), tombstone max sentinel (`"zzzzzzzzzzzzzzzzzzzzzzzz"`).
+    - Validated by `cargo xtask base36 validate <string>`.
 
 ---
 
