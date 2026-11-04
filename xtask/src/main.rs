@@ -20,6 +20,7 @@ fn main() -> Result<()> {
     let subcommand = args.get(1).map(String::as_str).unwrap_or("help");
     match subcommand {
         "gate" => gate::run(),
+        "preflight" => gate::preflight_cli(&args[2..]),
         "check-encoding" => encoding::run(),
         "check-native" => native_audit::run(),
         "check-unwraps" => check_unwraps::run(&args[2..]),
@@ -61,6 +62,7 @@ Usage: cargo xtask <subcommand>
 
 Subcommands:
   gate                Run every CI verification gate locally (replaces scripts/agent_check.sh)
+  preflight           Run deterministic cost-layered verification preflight (Tier 0 static checks by default)
   check-encoding      Validate UTF-8/LF compliance across all tracked files
   check-native        Enforce the pure-Rust core boundary and native package allowlist
   check-unwraps       Check unwrap/expect/panic!/assert! counts against the ratchet baseline
