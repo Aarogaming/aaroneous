@@ -268,7 +268,7 @@ impl CommandPalette {
         let modal_width = 560.0f32.min(screen_rect.width() - 40.0);
         let modal_height = 380.0f32.min(screen_rect.height() - 80.0);
 
-        let area_res = egui::Area::new(egui::Id::new("command_palette_modal"))
+        let area_res = egui::Area::new(egui::Id::unique("command_palette_modal"))
             .fixed_pos(egui::pos2(
                 (screen_rect.width() - modal_width) * 0.5,
                 screen_rect.height() * 0.15,

@@ -208,7 +208,7 @@ pub fn render_transparent_hud(ctx: &egui::Context, state: &mut SharedHudState) {
     if state.overlay_show_aim_crosshair {
         let painter = ctx.layer_painter(egui::LayerId::new(
             egui::Order::Foreground,
-            egui::Id::new("overlay_primitives_reticle"),
+            egui::Id::unique("overlay_primitives_reticle"),
         ));
         let screen = ctx.content_rect();
 

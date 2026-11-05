@@ -277,7 +277,7 @@ impl SkillConstellationCanvas {
                     egui::Tooltip::always_open(
                         ctx.clone(),
                         ui.layer_id(),
-                        ui.id().with(&star.id),
+                        ui.scope_id().with(&star.id),
                         egui::containers::PopupAnchor::Pointer,
                     )
                     .show(|ui: &mut Ui| {

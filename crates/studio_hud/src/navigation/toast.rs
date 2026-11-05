@@ -106,7 +106,7 @@ impl ToastNotificationManager {
 
             let painter = ctx.layer_painter(egui::LayerId::new(
                 egui::Order::Tooltip,
-                egui::Id::new(format!("toast_{}", toast.id)),
+                egui::Id::unique(format!("toast_{}", toast.id)),
             ));
 
             painter.rect(
