@@ -43,7 +43,7 @@ bytes = "1.0"
 uuid = { version = "1.0", features = ["v4", "serde"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }
 rand = "0.10"
-thiserror = "1.0"
+thiserror = "2.0"
 async-trait = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json"] }
 bincode = "1.3"
