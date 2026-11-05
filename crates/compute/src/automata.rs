@@ -520,7 +520,7 @@ pub fn reduce_step<const N: usize>(
     fuel.consume(1)?;
 
     let node_idx = state.active_node.0 as usize;
-    if node_idx >= arena.node_count {
+    if node_idx >= arena.node_count || node_idx >= N {
         return Err(ReducerTrap::InvalidNodeIndex(state.active_node));
     }
 
@@ -561,14 +561,21 @@ pub fn reduce_step<const N: usize>(
                 if iters > max_iterations_per_tick {
                     return Err(ReducerTrap::LoopIterationCapExceeded);
                 }
-                let inner_state = AutomatonState {
+                let mut inner_state = AutomatonState {
                     active_node: body,
                     call_depth: next_depth,
                     halted: false,
                 };
-                let (_, inner_actions) = reduce_step(arena, inner_state, obs, fuel)?;
-                for i in 0..inner_actions.count {
-                    actions.push(inner_actions.actions[i])?;
+                loop {
+                    let (next_body, inner_actions) = reduce_step(arena, inner_state, obs, fuel)?;
+                    let has_action = inner_actions.count > 0;
+                    for i in 0..inner_actions.count {
+                        actions.push(inner_actions.actions[i])?;
+                    }
+                    inner_state = next_body;
+                    if inner_state.halted || has_action {
+                        break;
+                    }
                 }
             }
             state.active_node.0 = state
@@ -591,22 +598,23 @@ pub fn reduce_step<const N: usize>(
                 return Err(ReducerTrap::InvalidNodeIndex(NodeIdx(sub_id.0)));
             }
             let sub_entry = arena.subroutines[sub_idx];
-            let sub_state = AutomatonState {
+            let mut sub_state = AutomatonState {
                 active_node: sub_entry,
                 call_depth: next_depth,
                 halted: false,
             };
-            let (next_sub, sub_actions) = reduce_step(arena, sub_state, obs, fuel)?;
-            for i in 0..sub_actions.count {
-                actions.push(sub_actions.actions[i])?;
+            while !sub_state.halted {
+                let (next_sub, sub_actions) = reduce_step(arena, sub_state, obs, fuel)?;
+                for i in 0..sub_actions.count {
+                    actions.push(sub_actions.actions[i])?;
+                }
+                sub_state = next_sub;
             }
-            if next_sub.halted {
-                state.active_node.0 = state
-                    .active_node
-                    .0
-                    .checked_add(1)
-                    .ok_or(ReducerTrap::IntegerOverflow)?;
-            }
+            state.active_node.0 = state
+                .active_node
+                .0
+                .checked_add(1)
+                .ok_or(ReducerTrap::IntegerOverflow)?;
         }
         ControlInstruction::Sequence { start_idx, length } => {
             let next_depth = state
@@ -616,22 +624,32 @@ pub fn reduce_step<const N: usize>(
             if next_depth as usize >= MAX_SUBROUTINE_DEPTH {
                 return Err(ReducerTrap::RecursionLimitExceeded);
             }
-            state.active_node = start_idx;
-            for _ in 0..length {
+            for offset in 0..length {
                 fuel.consume(1)?;
-                let sub_state = AutomatonState {
-                    active_node: state.active_node,
+                let child_node = start_idx
+                    .0
+                    .checked_add(offset)
+                    .ok_or(ReducerTrap::IntegerOverflow)?;
+                let child_state = AutomatonState {
+                    active_node: NodeIdx(child_node),
                     call_depth: next_depth,
                     halted: false,
                 };
-                let (next, sub_actions) = reduce_step(arena, sub_state, obs, fuel)?;
-                state = next;
+                let (next, sub_actions) = reduce_step(arena, child_state, obs, fuel)?;
                 for i in 0..sub_actions.count {
                     actions.push(sub_actions.actions[i])?;
                 }
-                if state.halted {
+                if next.halted {
+                    state.halted = true;
                     break;
                 }
+            }
+            if !state.halted {
+                state.active_node.0 = state
+                    .active_node
+                    .0
+                    .checked_add(1)
+                    .ok_or(ReducerTrap::IntegerOverflow)?;
             }
         }
         ControlInstruction::Selector { start_idx, length } => {
@@ -659,7 +677,7 @@ pub fn reduce_step<const N: usize>(
                         for i in 0..sub_actions.count {
                             actions.push(sub_actions.actions[i])?;
                         }
-                        if !child_state.halted {
+                        if sub_actions.count > 0 || !child_state.halted {
                             resolved = true;
                             break;
                         }
@@ -673,7 +691,7 @@ pub fn reduce_step<const N: usize>(
                 state.active_node.0 = state
                     .active_node
                     .0
-                    .checked_add(length)
+                    .checked_add(1)
                     .ok_or(ReducerTrap::IntegerOverflow)?;
             }
         }
@@ -739,7 +757,7 @@ pub fn validate_arena<const N: usize>(arena: &MacroArena<N>) -> Result<(), Reduc
         }
     }
 
-    // 2. DAG Acyclicity Verification (DFS Cycle Detection)
+    // 2. DAG Acyclicity Verification (DFS Cycle Detection with Implicit Transitions)
     // 0 = Unvisited, 1 = Visiting (in current DFS call stack), 2 = Visited (acyclic)
     let mut state = [0u8; MAX_ARENA_NODES];
 
@@ -748,7 +766,7 @@ pub fn validate_arena<const N: usize>(arena: &MacroArena<N>) -> Result<(), Reduc
         arena: &MacroArena<N>,
         state: &mut [u8; MAX_ARENA_NODES],
     ) -> Result<(), ReducerTrap> {
-        if node >= arena.node_count {
+        if node >= arena.node_count || node >= N {
             return Err(ReducerTrap::InvalidNodeIndex(NodeIdx(node as u16)));
         }
         if state[node] == 1 {
@@ -769,6 +787,9 @@ pub fn validate_arena<const N: usize>(arena: &MacroArena<N>) -> Result<(), Reduc
             }
             ControlInstruction::LoopWhile { body, .. } => {
                 check_cycle(body.0 as usize, arena, state)?;
+                if node + 1 < arena.node_count {
+                    check_cycle(node + 1, arena, state)?;
+                }
             }
             ControlInstruction::Sequence { start_idx, length } => {
                 let start = start_idx.0 as usize;
@@ -777,6 +798,9 @@ pub fn validate_arena<const N: usize>(arena: &MacroArena<N>) -> Result<(), Reduc
                     .ok_or(ReducerTrap::IntegerOverflow)?;
                 for child in start..end {
                     check_cycle(child, arena, state)?;
+                }
+                if node + 1 < arena.node_count {
+                    check_cycle(node + 1, arena, state)?;
                 }
             }
             ControlInstruction::Selector { start_idx, length } => {
@@ -787,15 +811,27 @@ pub fn validate_arena<const N: usize>(arena: &MacroArena<N>) -> Result<(), Reduc
                 for child in start..end {
                     check_cycle(child, arena, state)?;
                 }
+                if node + 1 < arena.node_count {
+                    check_cycle(node + 1, arena, state)?;
+                }
             }
             ControlInstruction::CallSubroutine(sub_id) => {
                 let sub_idx = sub_id.0 as usize;
-                if sub_idx < arena.subroutines.len() {
-                    let entry = arena.subroutines[sub_idx].0 as usize;
-                    check_cycle(entry, arena, state)?;
+                if sub_idx >= arena.subroutines.len() {
+                    return Err(ReducerTrap::InvalidNodeIndex(NodeIdx(sub_id.0)));
+                }
+                let entry = arena.subroutines[sub_idx].0 as usize;
+                check_cycle(entry, arena, state)?;
+                if node + 1 < arena.node_count {
+                    check_cycle(node + 1, arena, state)?;
                 }
             }
-            ControlInstruction::EmitAction(_) | ControlInstruction::Halt => {}
+            ControlInstruction::EmitAction(_) => {
+                if node + 1 < arena.node_count {
+                    check_cycle(node + 1, arena, state)?;
+                }
+            }
+            ControlInstruction::Halt => {}
         }
 
         state[node] = 2;
@@ -806,6 +842,103 @@ pub fn validate_arena<const N: usize>(arena: &MacroArena<N>) -> Result<(), Reduc
         if state[root] == 0 {
             check_cycle(root, arena, &mut state)?;
         }
+    }
+
+    // 3. Maximum Recursion/Evaluation Depth Verification
+    let mut depth_memo = [None; MAX_ARENA_NODES];
+
+    fn compute_nesting_depth<const N: usize>(
+        node: usize,
+        arena: &MacroArena<N>,
+        memo: &mut [Option<usize>; MAX_ARENA_NODES],
+    ) -> Result<usize, ReducerTrap> {
+        if node >= arena.node_count || node >= N {
+            return Err(ReducerTrap::InvalidNodeIndex(NodeIdx(node as u16)));
+        }
+        if let Some(d) = memo[node] {
+            return Ok(d);
+        }
+
+        let max_child_depth = match arena.nodes[node].instruction {
+            ControlInstruction::Branch {
+                on_true, on_false, ..
+            } => {
+                let d_true = compute_nesting_depth(on_true.0 as usize, arena, memo)?;
+                let d_false = compute_nesting_depth(on_false.0 as usize, arena, memo)?;
+                d_true.max(d_false)
+            }
+            ControlInstruction::LoopWhile { body, .. } => {
+                let d_body = compute_nesting_depth(body.0 as usize, arena, memo)?;
+                let d_next = if node + 1 < arena.node_count {
+                    compute_nesting_depth(node + 1, arena, memo)?
+                } else {
+                    0
+                };
+                (d_body + 1).max(d_next)
+            }
+            ControlInstruction::Sequence { start_idx, length } => {
+                let start = start_idx.0 as usize;
+                let end = start
+                    .checked_add(length as usize)
+                    .ok_or(ReducerTrap::IntegerOverflow)?;
+                let mut max_c = 0;
+                for child in start..end {
+                    max_c = max_c.max(compute_nesting_depth(child, arena, memo)?);
+                }
+                let d_next = if node + 1 < arena.node_count {
+                    compute_nesting_depth(node + 1, arena, memo)?
+                } else {
+                    0
+                };
+                (max_c + 1).max(d_next)
+            }
+            ControlInstruction::Selector { start_idx, length } => {
+                let start = start_idx.0 as usize;
+                let end = start
+                    .checked_add(length as usize)
+                    .ok_or(ReducerTrap::IntegerOverflow)?;
+                let mut max_c = 0;
+                for child in start..end {
+                    max_c = max_c.max(compute_nesting_depth(child, arena, memo)?);
+                }
+                let d_next = if node + 1 < arena.node_count {
+                    compute_nesting_depth(node + 1, arena, memo)?
+                } else {
+                    0
+                };
+                (max_c + 1).max(d_next)
+            }
+            ControlInstruction::CallSubroutine(sub_id) => {
+                let sub_idx = sub_id.0 as usize;
+                let entry = arena.subroutines[sub_idx].0 as usize;
+                let d_sub = compute_nesting_depth(entry, arena, memo)?;
+                let d_next = if node + 1 < arena.node_count {
+                    compute_nesting_depth(node + 1, arena, memo)?
+                } else {
+                    0
+                };
+                (d_sub + 1).max(d_next)
+            }
+            ControlInstruction::EmitAction(_) => {
+                if node + 1 < arena.node_count {
+                    compute_nesting_depth(node + 1, arena, memo)?
+                } else {
+                    0
+                }
+            }
+            ControlInstruction::Halt => 0,
+        };
+
+        if max_child_depth >= MAX_SUBROUTINE_DEPTH {
+            return Err(ReducerTrap::RecursionLimitExceeded);
+        }
+
+        memo[node] = Some(max_child_depth);
+        Ok(max_child_depth)
+    }
+
+    for root in 0..arena.node_count {
+        compute_nesting_depth(root, arena, &mut depth_memo)?;
     }
 
     Ok(())
@@ -1162,5 +1295,256 @@ mod cascading_automata_tests {
         let state = AutomatonState::default();
         let result = reduce_step(&arena, state, &obs, &mut fuel);
         assert_eq!(result, Err(ReducerTrap::RecursionLimitExceeded));
+    }
+
+    #[test]
+    fn test_backing_array_bounds_checked() {
+        let arena: MacroArena<1> = MacroArena {
+            nodes: [MacroArenaNode {
+                instruction: ControlInstruction::Halt,
+            }; 1],
+            subroutines: [NodeIdx(0); 32],
+            node_count: 2, // Inconsistent with N = 1
+        };
+        let obs = SensorySnapshot {
+            monotonic_timestamp_ns: 1_000_000,
+            condition_evaluator: &|_| false,
+        };
+        let mut fuel = StepFuel(10);
+        let state = AutomatonState {
+            active_node: NodeIdx(1),
+            call_depth: 0,
+            halted: false,
+        };
+        let result = reduce_step(&arena, state, &obs, &mut fuel);
+        assert_eq!(result, Err(ReducerTrap::InvalidNodeIndex(NodeIdx(1))));
+    }
+
+    #[test]
+    fn test_subroutine_progresses_and_advances_caller() {
+        let mut arena: MacroArena<16> = MacroArena::default();
+        // Node 0: Call subroutine 0
+        arena.nodes[0] = MacroArenaNode {
+            instruction: ControlInstruction::CallSubroutine(SubroutineId(0)),
+        };
+        // Node 1: EmitAction in subroutine
+        arena.nodes[1] = MacroArenaNode {
+            instruction: ControlInstruction::EmitAction(DiscreteAction::YieldSlice),
+        };
+        // Node 2: Halt subroutine
+        arena.nodes[2] = MacroArenaNode {
+            instruction: ControlInstruction::Halt,
+        };
+        // Node 3: Caller next instruction
+        arena.nodes[3] = MacroArenaNode {
+            instruction: ControlInstruction::Halt,
+        };
+        arena.subroutines[0] = NodeIdx(1);
+        arena.node_count = 4;
+
+        validate_arena(&arena).expect("arena validation must pass");
+
+        let obs = SensorySnapshot {
+            monotonic_timestamp_ns: 1_000_000,
+            condition_evaluator: &|_| false,
+        };
+        let mut fuel = StepFuel(100);
+        let state = AutomatonState::default();
+
+        let (next_state, actions) = reduce_step(&arena, state, &obs, &mut fuel)
+            .expect("subroutine execution must complete");
+        assert_eq!(actions.count, 1);
+        assert_eq!(actions.actions[0], DiscreteAction::YieldSlice);
+        // Caller advances past Node 0 to Node 1
+        assert_eq!(next_state.active_node, NodeIdx(1));
+        assert_eq!(next_state.call_depth, 0);
+    }
+
+    #[test]
+    fn test_loop_while_preserves_body_continuation() {
+        let mut arena: MacroArena<16> = MacroArena::default();
+        // Node 0: LoopWhile body at Node 1
+        arena.nodes[0] = MacroArenaNode {
+            instruction: ControlInstruction::LoopWhile {
+                condition: ConditionId(1),
+                max_iterations_per_tick: 2,
+                body: NodeIdx(1),
+            },
+        };
+        // Node 1: Branch to Node 2
+        arena.nodes[1] = MacroArenaNode {
+            instruction: ControlInstruction::Branch {
+                condition: ConditionId(0),
+                on_true: NodeIdx(2),
+                on_false: NodeIdx(2),
+            },
+        };
+        // Node 2: EmitAction
+        arena.nodes[2] = MacroArenaNode {
+            instruction: ControlInstruction::EmitAction(DiscreteAction::YieldSlice),
+        };
+        // Node 3: Caller next
+        arena.nodes[3] = MacroArenaNode {
+            instruction: ControlInstruction::Halt,
+        };
+        arena.node_count = 4;
+
+        let loop_count = std::sync::atomic::AtomicU16::new(0);
+        let obs = SensorySnapshot {
+            monotonic_timestamp_ns: 1_000_000,
+            condition_evaluator: &|id| {
+                if id.0 == 1 {
+                    let prev = loop_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                    prev < 1
+                } else {
+                    false
+                }
+            },
+        };
+        let mut fuel = StepFuel(100);
+        let state = AutomatonState::default();
+
+        let (next_state, actions) = reduce_step(&arena, state, &obs, &mut fuel)
+            .expect("loop body continuation must execute");
+        assert_eq!(actions.count, 1);
+        assert_eq!(actions.actions[0], DiscreteAction::YieldSlice);
+        assert_eq!(next_state.active_node, NodeIdx(1));
+    }
+
+    #[test]
+    fn test_sequence_executes_siblings_and_restores_depth() {
+        let mut arena: MacroArena<16> = MacroArena::default();
+        arena.nodes[0] = MacroArenaNode {
+            instruction: ControlInstruction::Sequence {
+                start_idx: NodeIdx(1),
+                length: 2,
+            },
+        };
+        arena.nodes[1] = MacroArenaNode {
+            instruction: ControlInstruction::EmitAction(DiscreteAction::MouseMove { x: 10, y: 20 }),
+        };
+        arena.nodes[2] = MacroArenaNode {
+            instruction: ControlInstruction::EmitAction(DiscreteAction::MouseButton {
+                button: 1,
+                down: true,
+            }),
+        };
+        arena.nodes[3] = MacroArenaNode {
+            instruction: ControlInstruction::Halt,
+        };
+        arena.node_count = 4;
+
+        validate_arena(&arena).expect("validation passes");
+
+        let obs = SensorySnapshot {
+            monotonic_timestamp_ns: 1_000_000,
+            condition_evaluator: &|_| false,
+        };
+        let mut fuel = StepFuel(100);
+        let state = AutomatonState::default();
+
+        let (next_state, actions) =
+            reduce_step(&arena, state, &obs, &mut fuel).expect("sequence succeeds");
+        assert_eq!(actions.count, 2);
+        assert_eq!(
+            actions.actions[0],
+            DiscreteAction::MouseMove { x: 10, y: 20 }
+        );
+        assert_eq!(
+            actions.actions[1],
+            DiscreteAction::MouseButton {
+                button: 1,
+                down: true
+            }
+        );
+        assert_eq!(next_state.active_node, NodeIdx(1));
+        assert_eq!(next_state.call_depth, 0); // Call depth restored
+    }
+
+    #[test]
+    fn test_selector_advances_past_instruction_and_stops_on_action() {
+        let mut arena: MacroArena<16> = MacroArena::default();
+        // Node 0: Selector trying Node 1 and Node 2
+        arena.nodes[0] = MacroArenaNode {
+            instruction: ControlInstruction::Selector {
+                start_idx: NodeIdx(1),
+                length: 2,
+            },
+        };
+        // Node 1: Emits an action
+        arena.nodes[1] = MacroArenaNode {
+            instruction: ControlInstruction::EmitAction(DiscreteAction::YieldSlice),
+        };
+        // Node 2: Second alternative (should NOT be reached)
+        arena.nodes[2] = MacroArenaNode {
+            instruction: ControlInstruction::EmitAction(DiscreteAction::MouseButton {
+                button: 2,
+                down: false,
+            }),
+        };
+        arena.nodes[3] = MacroArenaNode {
+            instruction: ControlInstruction::Halt,
+        };
+        arena.node_count = 4;
+
+        let obs = SensorySnapshot {
+            monotonic_timestamp_ns: 1_000_000,
+            condition_evaluator: &|_| false,
+        };
+        let mut fuel = StepFuel(100);
+        let state = AutomatonState::default();
+
+        let (next_state, actions) =
+            reduce_step(&arena, state, &obs, &mut fuel).expect("selector succeeds");
+        assert_eq!(actions.count, 1);
+        assert_eq!(actions.actions[0], DiscreteAction::YieldSlice);
+        // Advances to Node 1 (past selector at Node 0)
+        assert_eq!(next_state.active_node, NodeIdx(1));
+    }
+
+    #[test]
+    fn test_implicit_cursor_cycle_detected() {
+        let mut arena: MacroArena<16> = MacroArena::default();
+        // Node 0 emits action, implicitly stepping to Node 1
+        arena.nodes[0] = MacroArenaNode {
+            instruction: ControlInstruction::EmitAction(DiscreteAction::YieldSlice),
+        };
+        // Node 1 branches back to Node 0
+        arena.nodes[1] = MacroArenaNode {
+            instruction: ControlInstruction::Branch {
+                condition: ConditionId(0),
+                on_true: NodeIdx(0),
+                on_false: NodeIdx(0),
+            },
+        };
+        arena.node_count = 2;
+
+        assert_eq!(
+            validate_arena(&arena),
+            Err(ReducerTrap::IllegalCycleDetected)
+        );
+    }
+
+    #[test]
+    fn test_nesting_depth_bounded_in_validation() {
+        // Create an acyclic chain of 16 Sequence instructions
+        let mut arena: MacroArena<32> = MacroArena::default();
+        for i in 0..16 {
+            arena.nodes[i] = MacroArenaNode {
+                instruction: ControlInstruction::Sequence {
+                    start_idx: NodeIdx((i + 1) as u16),
+                    length: 1,
+                },
+            };
+        }
+        arena.nodes[16] = MacroArenaNode {
+            instruction: ControlInstruction::Halt,
+        };
+        arena.node_count = 17;
+
+        assert_eq!(
+            validate_arena(&arena),
+            Err(ReducerTrap::RecursionLimitExceeded)
+        );
     }
 }
