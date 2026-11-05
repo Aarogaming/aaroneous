@@ -268,7 +268,7 @@ fn inspect_item(item: Item, info: &mut CodeInfo) {
         }
         Item::Impl(impl_block) => {
             let self_type = type_to_string(&impl_block.self_ty);
-            let trait_name = impl_block.trait_.as_ref().map(|(_, path, _)| {
+            let trait_name = impl_block.trait_.as_ref().map(|(path, _)| {
                 path.segments
                     .last()
                     .map(|s| s.ident.to_string())
@@ -357,5 +357,19 @@ mod tests {
         assert_eq!(info.structs.len(), 1);
         assert_eq!(info.enums.len(), 1);
         assert_eq!(info.functions.len(), 1);
+    }
+
+    #[test]
+    fn parses_impl_trait() {
+        let mut file = NamedTempFile::new().expect("tmp file");
+        writeln!(
+            file,
+            "struct Foo;\nimpl Display for Foo {{\n    fn fmt(&self, f: &mut Formatter) -> Result {{\n        Ok(())\n    }}\n}}"
+        )
+        .unwrap();
+        let info = inspect_code(file.path()).expect("inspect");
+        assert_eq!(info.impls.len(), 1);
+        assert_eq!(info.impls[0].self_type, "Foo");
+        assert_eq!(info.impls[0].trait_name.as_deref(), Some("Display"));
     }
 }
