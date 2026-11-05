@@ -83,7 +83,7 @@ impl HudView for AgentsHubView {
 
                 let click_resp = ui.interact(
                     resp.response.rect,
-                    ui.id().with(tab as usize),
+                    ui.scope_id().with(tab as usize),
                     egui::Sense::click(),
                 );
                 if click_resp.clicked() {

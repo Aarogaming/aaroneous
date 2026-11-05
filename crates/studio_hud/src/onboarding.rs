@@ -27,7 +27,7 @@ impl OnboardingGuide {
         let modal_width = 620.0f32.min(screen_rect.width() - 40.0);
         let modal_height = 420.0f32.min(screen_rect.height() - 60.0);
 
-        egui::Area::new(egui::Id::new("interactive_onboarding_modal"))
+        egui::Area::new(egui::Id::unique("interactive_onboarding_modal"))
             .fixed_pos(egui::pos2(
                 (screen_rect.width() - modal_width) * 0.5,
                 (screen_rect.height() - modal_height) * 0.4,

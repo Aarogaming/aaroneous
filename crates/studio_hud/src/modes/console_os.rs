@@ -500,8 +500,11 @@ impl ConsoleOsLauncher {
 
                         // Click or hover snapping
                         let interact_rect = resp.response.rect;
-                        let click_resp =
-                            ui.interact(interact_rect, ui.id().with(idx), egui::Sense::click());
+                        let click_resp = ui.interact(
+                            interact_rect,
+                            ui.scope_id().with(idx),
+                            egui::Sense::click(),
+                        );
                         if click_resp.hovered() {
                             self.active_focus_idx = idx;
                         }
