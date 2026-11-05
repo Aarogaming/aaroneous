@@ -79,4 +79,29 @@ mod tests {
         visitor_safe.visit_file(&file_safe);
         assert_eq!(visitor_safe.violations.len(), 0);
     }
+
+    #[test]
+    fn detects_unsafe_zeroable_impl() {
+        let code_unsafe = ["unsafe ", "impl ", "Zeroable for Y {}"].concat();
+        let file_unsafe: syn::File = syn::parse_str(&code_unsafe).unwrap();
+        let mut visitor_unsafe = SoundnessVisitor {
+            file_path: Path::new("test.rs"),
+            violations: Vec::new(),
+        };
+        visitor_unsafe.visit_file(&file_unsafe);
+        assert_eq!(visitor_unsafe.violations.len(), 1);
+        assert_eq!(
+            visitor_unsafe.violations[0].rule,
+            "manual-pod-implementation"
+        );
+
+        let code_safe = "impl Zeroable for Y {}";
+        let file_safe: syn::File = syn::parse_str(code_safe).unwrap();
+        let mut visitor_safe = SoundnessVisitor {
+            file_path: Path::new("test.rs"),
+            violations: Vec::new(),
+        };
+        visitor_safe.visit_file(&file_safe);
+        assert_eq!(visitor_safe.violations.len(), 0);
+    }
 }
