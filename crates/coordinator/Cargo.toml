@@ -66,7 +66,7 @@ zstd = "0.14"
 cratify_core = { path = "../cratify_core" }
 
 
-rusqlite = "0.40.0"
+rusqlite = "0.41.1"
 memmap2 = "0.9"
 
 
