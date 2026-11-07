@@ -1,6 +1,7 @@
 use compute::si_solid_state::{SiOnlineLearner, SolidStateSiContainer};
 use compute::si_ssm::SiSsmConfig;
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
+use std::hint::black_box;
 
 /// Mock tokenizer + embedding + softmax overhead simulating an autoregressive LLM pass
 fn traditional_token_llm_mock(input_text: &str) -> String {
