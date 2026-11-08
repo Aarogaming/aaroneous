@@ -65,8 +65,8 @@ tooling_profile_crates = ["ast_auditor", "cratify", "compliance_auditor", "xtask
 [[allowed]]
 name = "alloca"
 version = "0.4.0"
-justification = "Stack allocation utility pulled in transitively by criterion, the benchmarking harness used by emulator_harness and hypervisor's dev-dependency benches; no native source compiled for our usage."
-owning_adapter = ["emulator_harness", "hypervisor"]
+justification = "Stack allocation utility pulled in transitively by criterion, the benchmarking harness used by benchmarks, emulator_harness and hypervisor's dev-dependency benches; no native source compiled for our usage."
+owning_adapter = ["benchmarks", "emulator_harness", "hypervisor"]
 
 [[allowed]]
 name = "ash"
