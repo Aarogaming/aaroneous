@@ -124,12 +124,6 @@ owning_adapter = ["hypervisor"]
 
 [[allowed]]
 name = "libsqlite3-sys"
-version = "0.38.2"
-justification = "Bundled SQLite backing hypervisor's and coordinator's direct `rusqlite` dependency (feature `bundled`). Needs a future storage_adapter isolation boundary; today it is a direct dependency of both."
-owning_adapter = ["hypervisor", "coordinator"]
-
-[[allowed]]
-name = "libsqlite3-sys"
 version = "0.39.1"
 justification = "Bundled SQLite backing hypervisor's and coordinator's direct `rusqlite` dependency (feature `bundled`). Upgraded via rusqlite 0.41.1 bump."
 owning_adapter = ["hypervisor", "coordinator"]
