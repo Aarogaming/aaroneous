@@ -27,7 +27,7 @@ thiserror = { workspace = true }
 tracing = "0.1"
 tokio = { version = "^1.40.0", features = ["rt", "time", "sync", "tracing"] }
 async-trait = "0.1"
-parking_lot = "0.12"
+parking_lot = "0.13"
 which = "8.0"
 moka = { version = "0.12", features = ["future"] }
 reqwest = { version = "0.13", default-features = false, features = ["json", "stream", "rustls"] }

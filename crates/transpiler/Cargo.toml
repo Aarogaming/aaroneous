@@ -22,7 +22,7 @@ tracing = "0.1"
 regex = "1.10"
 bumpalo = "3.20"
 aho-corasick = "1.1"
-parking_lot = "0.12"
+parking_lot = "0.13"
 toml = "1.1"
 
 [dev-dependencies]

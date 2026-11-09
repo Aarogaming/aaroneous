@@ -33,7 +33,7 @@ anyhow = "1.0"
 paths = { path = "../../crates/paths" }
 clap = { version = "4.5", features = ["derive", "cargo"] }
 ctrlc = "3.4"
-parking_lot = "0.12"
+parking_lot = "0.13"
 serde_json = { workspace = true }
 tracing-subscriber = { version = "0.3", features = ["env-filter", "json", "fmt"] }
 uuid = { version = "1.0", features = ["v4", "serde", "v7"] }

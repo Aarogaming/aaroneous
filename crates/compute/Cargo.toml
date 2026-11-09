@@ -28,7 +28,7 @@ anyhow = "1.0"
 memmap2 = "0.9"
 rustfft = "6.2"
 hnsw_rs = "0.3"
-parking_lot = "0.12"
+parking_lot = "0.13"
 bytemuck = { version = "1.12", features = ["derive"] }
 
 # Cranelift Native JIT compilation
