@@ -8,6 +8,9 @@ updates:
       interval: "weekly"
     open-pull-requests-limit: 10
     groups:
+      cranelift:
+        patterns:
+          - "cranelift-*"
       patch-updates:
         update-types: ["patch"]
       minor-updates:
