@@ -129,6 +129,12 @@ justification = "Bundled SQLite backing hypervisor's and coordinator's direct `r
 owning_adapter = ["hypervisor", "coordinator"]
 
 [[allowed]]
+name = "libsqlite3-sys"
+version = "0.39.1"
+justification = "Bundled SQLite backing hypervisor's and coordinator's direct `rusqlite` dependency (feature `bundled`). Upgraded via rusqlite 0.41.1 bump."
+owning_adapter = ["hypervisor", "coordinator"]
+
+[[allowed]]
 name = "onig_sys"
 version = "69.9.3"
 justification = "Oniguruma regex engine backing the `onig` feature of hypervisor's direct `tokenizers` dependency."
