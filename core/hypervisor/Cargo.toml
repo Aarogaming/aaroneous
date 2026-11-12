@@ -92,7 +92,7 @@ candle-nn = "0.11"
 
 async-trait = "0.1"
 bytes = "1.5"
-async-nats = "0.51"
+async-nats = "0.52"
 url = "2.5"
 tracing-appender = "0.2.5"
 
