@@ -569,8 +569,8 @@ pub fn reduce_step<const N: usize>(
                 loop {
                     let (next_body, inner_actions) = reduce_step(arena, inner_state, obs, fuel)?;
                     let has_action = inner_actions.count > 0;
-                    for i in 0..inner_actions.count {
-                        actions.push(inner_actions.actions[i])?;
+                    for action in inner_actions.actions.iter().take(inner_actions.count) {
+                        actions.push(*action)?;
                     }
                     inner_state = next_body;
                     if inner_state.halted || has_action {
@@ -605,8 +605,8 @@ pub fn reduce_step<const N: usize>(
             };
             while !sub_state.halted {
                 let (next_sub, sub_actions) = reduce_step(arena, sub_state, obs, fuel)?;
-                for i in 0..sub_actions.count {
-                    actions.push(sub_actions.actions[i])?;
+                for action in sub_actions.actions.iter().take(sub_actions.count) {
+                    actions.push(*action)?;
                 }
                 sub_state = next_sub;
             }
@@ -636,8 +636,8 @@ pub fn reduce_step<const N: usize>(
                     halted: false,
                 };
                 let (next, sub_actions) = reduce_step(arena, child_state, obs, fuel)?;
-                for i in 0..sub_actions.count {
-                    actions.push(sub_actions.actions[i])?;
+                for action in sub_actions.actions.iter().take(sub_actions.count) {
+                    actions.push(*action)?;
                 }
                 if next.halted {
                     state.halted = true;
@@ -674,8 +674,8 @@ pub fn reduce_step<const N: usize>(
                 };
                 match reduce_step(arena, test_state, obs, fuel) {
                     Ok((child_state, sub_actions)) => {
-                        for i in 0..sub_actions.count {
-                            actions.push(sub_actions.actions[i])?;
+                        for action in sub_actions.actions.iter().take(sub_actions.count) {
+                            actions.push(*action)?;
                         }
                         if sub_actions.count > 0 || !child_state.halted {
                             resolved = true;
@@ -1529,8 +1529,8 @@ mod cascading_automata_tests {
     fn test_nesting_depth_bounded_in_validation() {
         // Create an acyclic chain of 16 Sequence instructions
         let mut arena: MacroArena<32> = MacroArena::default();
-        for i in 0..16 {
-            arena.nodes[i] = MacroArenaNode {
+        for (i, node) in arena.nodes.iter_mut().take(16).enumerate() {
+            *node = MacroArenaNode {
                 instruction: ControlInstruction::Sequence {
                     start_idx: NodeIdx((i + 1) as u16),
                     length: 1,
