@@ -32,4 +32,9 @@ ignore = [
     "RUSTSEC-2026-0368",
     "RUSTSEC-2026-0369",
     "RUSTSEC-2026-0429",
+    # No patched version exists (cargo-audit confirms `patched: []`); "unmaintained"
+    # advisory published 2026-11-18. All versions affected; recommended alternatives
+    # (time/jiff) require a dedicated workspace migration across orchestrator,
+    # hypervisor, and telemetry. Tracked, not silently dropped.
+    "RUSTSEC-2026-0543", # chrono 0.4.45, unmaintained
 ]
