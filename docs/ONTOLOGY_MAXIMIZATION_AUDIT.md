@@ -1,127 +1,180 @@
-# Cross-Repository Architectural Audit: Maximizing the Layer 0 Ontology
+# Constellation Architectural Audit: Maximizing the Layer 0 Ontology
 
-**Status:** Working Draft & Architecture Specification  
+**Status:** Architecture Specification & Constellation Normalization Plan  
 **Author:** Gemini Seat (`aaroneous-gemini-seat[bot]`)  
-**Scope:** `Aarogaming/aaroneous` (Type-Safe Rust Component Framework) & `Aarogaming/aaroneous-devtools` (Autonomous Verification & Platform Tooling)  
+**Scope:** The Entire Aarogaming Ecosystem (`aaroneous`, `aaroneous-devtools`, `AAS`, `Maelstrom`, `AutoWizard101`, `Guild`, `Merlin`, `MyFortress`, `Library`, `Workbench`, `AndroidApp`)  
 **Date:** 2026-11-18  
 **Governing Documents:** [AGENTS.md](../AGENTS.md), [CRATIFY_SPEC.md](CRATIFY_SPEC.md), [MASTER_ARCHITECTURE.md](architecture/MASTER_ARCHITECTURE.md), and [docs/ATLAS.md](ATLAS.md).
 
 ---
 
-## 1. Executive Thesis: What Does "Maximizing" Mean?
+## 1. Executive Thesis: The Universal Reality Model
 
-To maximize our ontology across all repositories does **not** mean introducing more domain-specific abstractions or writing duplicate framework layers. It means **reducing every subsystem to the smallest set of primitives that survive contact with reality without remainder**.
+Does the Layer 0 working ontology apply only to `aaroneous` and `aaroneous-devtools`?
 
-Across both product execution (`aaroneous`) and governance/coordination (`devtools`), every system is fundamentally an **embodiment system**:
+**No. It applies universally to every repository, component, and subsystem across the entire Aarogaming constellation.**
+
+The fundamental error in multi-repository development is treating each codebase as a separate architectural silo with its own bespoke reality model. When that happens:
+- A game agent is viewed as a "bot".
+- An orchestrator is viewed as a "script runner".
+- A model gateway is viewed as an "API wrapper".
+- A database is viewed as "storage".
+
+In reality, **every single repository in the constellation is an embodiment system**. The universal responsibility of an embodiment system is:
 
 $$\text{Observe Environment (Facts)} \longrightarrow \text{Determine Permission (Authority)} \longrightarrow \text{Execute Step (Actions)}$$
 
-The bedrock invariant that must govern both codebases is:
+### 1.1 The Non-Negotiable Separation Invariant
+The foundational invariant discovered across Maelstrom, Devtools, and Aaroneous is:
 
 $$\mathbf{Facts} \neq \mathbf{Authority} \neq \mathbf{Actions}$$
 
-- **Facts** describe reality (observe, store, retrieve). Facts **never authorize actions**.
-- **Authority** determines permission (policy boundaries, interlocks, deadbands). Authority **never executes transitions**.
-- **Actions** execute state transitions (dispatch, invoke, mutate). Actions **never self-authorize**; they consume authority.
+1. **Facts Describe Reality**: Observation, ingestion, sensor capture, memory reads, telemetry. Facts answer *"what is"*. **Facts never authorize actions.**
+2. **Authority Determines Permission**: Policy boundaries, interlocks, deadband thresholds, credential gates. Authority answers *"what is permitted"*. **Authority never executes transitions.**
+3. **Actions Execute Transitions**: State reducers, input dispatches, kernel steps, network writes. Actions answer *"what happens next"*. **Actions never self-authorize; they strictly consume authority.**
 
 ---
 
-## 2. The Layer 0 Primitives: Universal Mapping
+## 2. The Universal Constellation Matrix
 
-Every struct, actor, channel, policy, gate, and script in `aaroneous` and `devtools` reduces to one or more of these six primitives:
+Every repository in the Aarogaming ecosystem represents a specific combination of the **six Layer 0 primitives** (State, Transition, Relationship, Constraint, Trust, Perspective):
 
-| Primitive | Definition | In `Aaroneous` (Product) | In `aaroneous-devtools` (Platform) |
+| Repository | Role in Constellation | Dominant Primitives | Invariant Responsibility & Contract |
 | :--- | :--- | :--- | :--- |
-| **State** | Discrete, snapshot-able configuration at a tick. Flat memory geometry, zero hidden heap handles. | Memory geometry (`Pod`/`Zeroable`), `core-contracts`, pre-allocated ring buffers (`ipc_bus`). | `COORDINATION_QUEUE.md`, ledger tables, worker intake queues. |
-| **Transition** | Deterministic map: $S_{t+1} = f(S_t, I)$. Zero side-effects during reduction; non-allocating hot paths. | Deterministic state reducers (`compute::automata`, `.si` container steps), scan loops. | Steward job state machine, queue claim state transitions (`Claimed` $\to$ `Review` $\to$ `Done`). |
-| **Relationship** | Typed, explicit connection between loci with direction and capacity. No ambient proximity. | SWMR ring buffers, declared zero-copy IPC channels, task affinity topologies. | Peer admission graphs, broker lease channels, dependency DAGs (`dependency_review`). |
-| **Constraint** | Boundary limiting state space or valid transitions. Fault tolerance via deadband recovery. | Zero ambient authority, SMT interlocks (`governance`), fuel limits, Cratify ratchets. | Merge gate checklist (boxes 1-7), circuit breaker override, capacity ceilings (1 MiB queue). |
-| **Trust** | Real-time evaluated attestation of authorization, provenance, or correctness computed from evidence. | AST auditor invariant proofs, memory-safety invariants, constructor injection. | Multi-family independent review quorum, SSH-signed attestations, 3-way revert equality. |
-| **Perspective** | The lens through which state space is viewed. Work unit stays constant when lens rotates. | `studio_hud` viewports, projection read-models, `runtime_monitor` telemetry sinks. | Seat roles (Author vs. Reviewer vs. Monitor), checklist report projections, dashboard UI. |
+| **`aaroneous`** | Execution Engine & Physical Microkernel | **State, Transition, Constraint** | Pure state reduction $S_{t+1} = f(S_t, I)$. Zero-allocation hot paths, flat Pod/Zeroable memory geometry. Consumes authority tokens to step physical runtime. |
+| **`aaroneous-devtools`** | Autonomous Verification & Governance | **Trust, Relationship, Constraint** | Cryptographic review quorum (`ssh-ed25519`), multi-family model isolation, mathematical 3-way revert equality, append-only coordination ledgers. |
+| **`AAS` (AutomationSuite)** | Multi-Process Pipeline Orchestration | **Transition, Relationship** | Coordinated execution across OS process boundaries. Coordinates multi-actor transitions without violating zero ambient authority. |
+| **`Maelstrom`** | Embodiment & Low-Level Actuation | **State, Transition, Constraint** | Hardware perception, screen ingest, frame timing, input dispatch. Observes raw facts, consumes authority to execute physical inputs. |
+| **`AutoWizard101` / `DanceBot`** | Target Environment Adapters | **State (Facts), Relationship** | Domain adapters. Ingests game memory and UI trees into typed fact structures. Facts describe reality; never self-authorize. |
+| **`Guild`** | Multi-Agent Institution | **Trust, Relationship** | Trust applied to collective execution: peer admission, agent role assignments, reservation budgets, delegation graphs. |
+| **`Merlin`** | Reasoning & Model Routing | **Transition (Proposals), Perspective** | Strategic hypothesis generation. Proposes candidate state transitions; never executes or authorizes them directly. |
+| **`MyFortress`** | Credential Enclave & Security Boundary | **Constraint, Trust** | Trust applied to authority: cryptographic key fences, credential enclaves, zero ambient authority enforcement. Issues authority grants; never executes actions. |
+| **`Library`** | Persistent Memory & Provenance | **State (History), Trust** | Trust applied to knowledge: immutable governed component records, historical decisions, dependency tracking, reproducible projections. |
+| **`Workbench`** | Diagnostic Visualizer & Asset Catalog | **Perspective, State** | Read-only instrumentation, asset indexing, telemetry inspection viewports. Reads state; never performs state transitions. |
+| **`AndroidApp`** | Mobile Client Adapter | **Relationship, Perspective** | Configured remote interaction boundary, lightweight mobile viewports without ambient host access. |
 
 ---
 
-## 3. Product Repository Audit (`Aaroneous`)
+## 3. The Universal Architectural Topology
 
-### 3.1 What Is Cleanly Aligned
-1. **Purity of State**: `core-contracts` and `wire` strictly implement flat memory geometry (`#[repr(C)]`, `bytemuck::Pod`, explicit padding). There are zero hidden pointer handles.
-2. **Purity of Transition**: `crates/compute/src/automata.rs` operates as a pure, fuel-bounded cascading reducer. Transitions do not trigger ambient I/O or allocate on hot paths.
-3. **Purity of Constraint**: `crates/governance` isolates safety interlocks and deadband threshold controllers (`Nominal` $\to$ `Degraded` $\to$ `SafeHold`), decoupling safety rules from execution machinery.
+When the 12 repositories are mapped to the Layer 0 ontology, the artificial repository boundaries disappear into a single, cohesive cybernetic cycle:
 
-### 3.2 Leaks & Semantic Smells Detected
-1. **Fact vs. Authority Smear in Input Ingestion**:
-   - *Finding*: In `platform_bridge` and frame ingestors, raw hardware observations (DXGI frames, audio samples) occasionally transition directly into command dispatch without passing through an explicit, typed `FactQualification` boundary.
-   - *Fix*: Standardize a strict `FactQualifier` trait: raw observations remain untrusted facts until validated against an explicit schema and injected into the reducer.
-2. **Implicit Ambient Time**:
-   - *Finding*: While AGENTS.md strictly bans ambient clock calls (`SystemTime::now()` / `Instant::now()`), components occasionally accept raw tick values without a typed contract defining monotonic sequence ordering vs. duration constraints.
-   - *Fix*: Decouple sequence progression (`Transition` step index) from timeout/expiration policies (`Constraint` deadline).
-3. **Incomplete ATLAS Census**:
-   - *Finding*: In `docs/ATLAS.md`, only `core-contracts`, `governance`, and `omni` have formal classification audits. Key engines (`compute`, `hypervisor`, `orchestrator`, `capabilities`, `platform_bridge`) remain unclassified.
+```mermaid
+flowchart TD
+    subgraph SENSORS ["1. Observation (Facts)"]
+        W101["AutoWizard101 / DanceBot (Game Adapters)"]
+        MAEL["Maelstrom (Screen Ingest & Frame Ingest)"]
+        PLAT["platform_bridge (OS / Win32 / DXGI)"]
+    end
+
+    subgraph PROPOSERS ["2. Strategy (Perspective)"]
+        MERLIN["Merlin (Reasoning & Model Routing)"]
+    end
+
+    subgraph GOVERNANCE ["3. Permission (Authority & Trust)"]
+        FORT["MyFortress (Credential Fences & Enclaves)"]
+        GOV["governance (SMT Interlocks & Deadbands)"]
+        GUILD["Guild / Devtools (Multi-Agent Quorum & Leases)"]
+    end
+
+    subgraph EXECUTORS ["4. Execution (State Transitions)"]
+        CORE["aaroneous (Microkernel Reducers)"]
+        AAS["AAS (Multi-Process Orchestration)"]
+    end
+
+    subgraph MEMORY ["5. History & Projections (State & Perspective)"]
+        LIB["Library (Governed Records & Provenance)"]
+        BENCH["Workbench / Studio HUD (Viewports & Telemetry)"]
+    end
+
+    SENSORS -- "Typed Facts (No Authority)" --> PROPOSERS
+    PROPOSERS -- "Candidate Transition" --> GOVERNANCE
+    GOVERNANCE -- "Verified Authority Token" --> EXECUTORS
+    EXECUTORS -- "Deterministic State Step" --> MEMORY
+    MEMORY -. "Feedback Loop (Read Models)" .-> SENSORS
+```
 
 ---
 
-## 4. Devtools Repository Audit (`aaroneous-devtools`)
+## 4. Deep Audits & Semantic Smells Across Repositories
 
-### 4.1 What Is Cleanly Aligned
-1. **Purity of Trust**: The merge gate (`merge_gate.py`, `review_coverage.py`) establishes an industry-leading trust model: cryptographic signatures (`ssh-ed25519`), independent model family isolation (no self-certification), and strict command evidence retention.
-2. **Mathematical Revertibility (C192)**: PR #278 eliminates manual human bottlenecks by checking 3-way inverse git trees (`merge-tree --write-tree`), reducing revert safety to pure mathematical identity ($T_{\text{revert}} == T_{\text{base}}$).
+### 4.1 `aaroneous` (Product)
+- **Current Alignment**: Purity of flat memory geometry (`Pod`/`Zeroable`), pure cascading reducers (`compute::automata`), SMT deadband interlocks (`governance`).
+- **Semantic Leaks**:
+  1. *Ingest Bypass*: Frame ingestors occasionally dispatch actions without a typed `FactQualification` intermediate stage.
+  2. *Ambient Time Smear*: Raw tick counters conflate sequence ordering (`Transition`) with TTL/timeout policies (`Constraint`).
+  3. *Unclassified Crates*: 7 core crates (`compute`, `hypervisor`, `orchestrator`, `ipc_bus`, `capabilities`, `platform_bridge`, `llm_gateway`) lack census reduction tables in `docs/ATLAS.md`.
 
-### 4.2 Leaks & Semantic Smells Detected
-1. **Coupling in `COORDINATION_QUEUE.md`**:
-   - *Finding*: A single queue row currently conflates three distinct primitives:
-     - `State`: Current claim status, lane ID.
-     - `Transition`: The implementation branch and proposed commit delta.
-     - `Trust`: Signed attestation receipts and audit citations.
-   - *Fix*: Decouple the claim ledger (`State`) from the implementation attempt (`Transition`) and the terminal verification record (`Trust`).
-2. **Ambient Tool Dependencies**:
-   - *Finding*: Scripts and integration tests (`job_service`) occasionally rely on implicit host binaries (e.g., `git`, `ssh-keygen`, `curl`) rather than constructor-injected environment wrappers, leading to platform test friction on Windows.
-   - *Fix*: Wrap host tools inside explicit `ToolAdapter` configurations mirroring constructor injection in `Aaroneous`.
+### 4.2 `aaroneous-devtools` (Tooling & Verification)
+- **Current Alignment**: Multi-model independent review quorum, SSH cryptographic signatures, 3-way mathematical revert equality (`merge-tree`).
+- **Semantic Leaks**:
+  1. *Ledger Conflation*: `COORDINATION_QUEUE.md` conflates intent (`State`), proposed branch changes (`Transition`), and review receipts (`Trust`) into single markdown rows.
+  2. *Ambient Tooling*: Scripts occasionally assume host tool paths rather than injecting environment adapters.
+
+### 4.3 `AAS` (AaroneousAutomationSuite)
+- **Semantic Leak**: Process orchestration scripts frequently combine pipeline state management with direct execution privilege, violating zero ambient authority.
+- **Normalization**: AAS must become a pure reducer of multi-process pipeline state, delegating all OS mutations through capability-scoped adapters.
+
+### 4.4 `Maelstrom` & `AutoWizard101`
+- **Semantic Leak**: Conflating abstract capability with thematic skin (`MacroCard` coupled to `AutomationSchool`) and conflating sequence ordering with TTL expiration (`W101Fact`).
+- **Normalization**: Extract `Navigation`, `CombatPlanning`, and `UIObservation` as generic capabilities. Wizard101 becomes a pure **Environment Adapter**.
+
+### 4.5 `Guild` & `Merlin`
+- **Semantic Leak**: Proposers (reasoning models) directly attempting to write state or execute actions.
+- **Normalization**: Merlin strictly outputs candidate transitions. Guild evaluates the collaborative trust graph and issues budget reservations.
+
+### 4.6 `MyFortress` & `Library`
+- **Semantic Leak**: Library runtime databases attempting to self-promote operational records into governed policy.
+- **Normalization**: Control-plane vs. data-plane separation. Derived indexes can always be deterministically rebuilt from immutable, governed records. MyFortress holds credentials and signs grants; it never executes.
 
 ---
 
-## 5. The Best Path to Maximizing Our Ontology
+## 5. The 4-Pillar Universal Normalization Pipeline
 
-To achieve maximum ontological coherence across the ecosystem, we should follow this **4-Pillar Convergence Roadmap**:
+To normalize all 12 repositories into this reality model, we follow the **Wrap-First Doctrine**:
+
+$$\text{Wrap} \longrightarrow \text{Observe} \longrightarrow \text{Measure} \longrightarrow \text{Extract} \longrightarrow \text{Normalize} \longrightarrow \text{Replace}$$
+
+*Never Rewrite and Hope. Do Not Import Repositories; Import Discoveries.*
 
 ### Pillar 1: Universal Repository Census (Complete ATLAS.md)
-Complete classification audits for the remaining 7 crates in `Aaroneous`:
-- `compute`: Reducer automata (`Transition`), MacroArena (`State`), FuelBudget (`Constraint`).
-- `hypervisor`: Microkernel loop (`Transition`), HostContext (`State`).
-- `orchestrator`: TopologicalScheduler (`Relationship`), CoreAffinity (`Constraint`).
-- `ipc_bus`: RingBuffer (`State` + `Relationship`), LocklessSeq (`Constraint`).
-- `capabilities`: ToolRegistry (`Relationship`), InvocationContext (`Perspective`).
-- `platform_bridge`: OS Viewports (`Perspective`), Hardware Ingest (`Environment Adapter`).
-- `llm_gateway`: ModelRouter (`Relationship`), InferenceLease (`Constraint`).
+Extend the Layer 0 reduction tables in `docs/ATLAS.md` across every repository in the constellation:
+- Every public struct, trait, and actor across all 12 repositories must be tagged with its primitive reduction:
+  $$\text{Component} \in \{\text{State}, \text{Transition}, \text{Relationship}, \text{Constraint}, \text{Trust}, \text{Perspective}\}$$
 
 ### Pillar 2: Mechanize the Invariant via `ast_auditor`
-Currently, $\text{Facts} \neq \text{Authority} \neq \text{Actions}$ is enforced manually by code reviewers. We should mechanize this into `crates/ast_auditor`:
-- **Rule A (Observation Purity)**: Types tagged `#[fact]` or belonging to an observation crate cannot implement actuation traits (cannot expose `.execute()`, `.send()`, `.dispatch()`).
-- **Rule B (Authority Separation)**: Types tagged `#[policy]` or `#[governor]` cannot mutate state buffers directly; they return pure `Authorization` tokens.
-- **Rule C (Action Gating)**: Any function executing an effect must take a valid, non-forgeable `AuthorizationToken` by value (consuming authority).
+Graduate $\text{Facts} \neq \text{Authority} \neq \text{Actions}$ into compile-time AST verification:
+- **Observation Purity**: Any type in an observation/sensor module is banned from exposing actuation methods (`.execute()`, `.dispatch()`).
+- **Authority Purity**: Any policy/governor type returns pure, non-forgeable `AuthorityToken` grants; it is banned from mutating state directly.
+- **Action Gating**: Execution methods must consume an `AuthorityToken` by value.
 
 ### Pillar 3: Universal Environment Adapter Standard
-Standardize how both repositories interface with the external world:
-- Treat `platform_bridge` (DXGI/Win32/WASAPI), `steward/worker` (Git/CLI/SSH), and future embodiment modules (Browser/Game/Network) under one universal Adapter Contract:
-  ```rust
-  pub trait EnvironmentAdapter {
-      type Observation: Fact;
-      type ConstraintSet: Invariant;
-      type Command: Action;
+Standardize all external reality interfaces behind one shared Rust contract:
+```rust
+pub trait EnvironmentAdapter {
+    type Observation: Fact;
+    type ConstraintSet: Invariant;
+    type Command: Action;
 
-      fn observe(&mut self) -> Result<Self::Observation, AdapterError>;
-      fn check_constraints(&self, intent: &Intent) -> Result<AuthorityToken, GateBlocked>;
-      fn execute(&mut self, action: Self::Command, auth: AuthorityToken) -> Result<Receipt, ExecutionError>;
-  }
-  ```
+    fn observe(&mut self) -> Result<Self::Observation, AdapterError>;
+    fn check_constraints(&self, intent: &Intent) -> Result<AuthorityToken, GateBlocked>;
+    fn execute(&mut self, action: Self::Command, auth: AuthorityToken) -> Result<Receipt, ExecutionError>;
+}
+```
+*This identical contract governs DXGI screen capture, Windows Win32 events, Wizard101 game memory, Web browsers, Git CLI, and SSH remotes.*
 
-### Pillar 4: Bridge Runtime State to Cryptographic Trust
-Connect devtools' multi-model review system directly to Aaroneous runtime governance:
-- Dynamic configuration changes, feature promotions, and autonomous adjustments in `Aaroneous` should require the same cryptographic attestation block verified by `merge_gate.py`.
-- Runtime governors reject any unsigned or un-quorumed configuration update, providing zero-trust mechanical safety from PR merge all the way into live kernel execution.
+### Pillar 4: Unified Cryptographic Trust Bridge
+Unify the build-time governance of `devtools` with the runtime kernel of `aaroneous`:
+- Runtime state transitions, dynamic reconfiguration, and autonomous model interventions must carry the same signed attestation block verified by `merge_gate.py`.
+- Runtime governors reject any unsigned, un-quorumed configuration update, providing unbroken mathematical trust from code review to kernel tick.
 
 ---
 
-## 6. Conclusion
+## 6. Success Criteria
 
-Maximizing our ontology is **not a rewrite**; it is the **purification of existing boundaries**.
-By auditing each subsystem down to the 6 Layer 0 primitives, enforcing $\text{Facts} \neq \text{Authority} \neq \text{Actions}$ mechanically in the AST auditor, and applying the Environment Adapter contract universally, repository boundaries dissolve naturally into a single, cohesive reality model.
+Constellation normalization is complete when:
+1. **Subsystems**: Every subsystem in all 12 repositories answers: *What primitive does this express?*
+2. **Capabilities**: Every capability answers: *What evidence proves it works?*
+3. **Authority**: Every authority boundary answers: *What permits this action?*
+4. **Actions**: Every action answers: *What fact justified it?*
+5. **Consolidation**: Repositories merge naturally because their underlying concepts have already converged into one reality model.
