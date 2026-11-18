@@ -2,7 +2,7 @@
 
 **Status:** Working draft, unreviewed by a second model family. A classification exercise, not a verification.
 **Target:** the Maelstrom workspace under AutoWizard101 (`F:\Modlists\AutoWizard101`), searched on 2026-11-18. Its live tree has uncommitted modifications, so line-level facts here can drift.
-**Original draft:** Gemini seat, 2026-11-17. Normalized by the Claude seat on 2026-11-18 against what the tree contains. See [ATLAS.md](ATLAS.md) for the vocabulary and the stance.
+**Origin:** first drafted by the Gemini seat on 2026-11-17 (attribution inferred from the checkout identity; never committed), then checked against the tree by the Claude seat on 2026-11-18, which makes the Claude seat a contributor, not an independent reviewer. See [ATLAS.md](ATLAS.md) for the vocabulary and the stance.
 
 Maelstrom is being rebuilt as a universal trainer rather than a Wizard101-only one, and the owner intends it to progress together with Aaroneous. This audit therefore matters most where it separates generic capability from game-specific content.
 
@@ -29,13 +29,13 @@ Each named construct was searched for by exact name in `crates/` (Rust) and `Pro
 | `NavigationMesh` / waypoints | **No** | No match for `NavigationMesh` in the Rust crates | Relationship (author) |
 | `ManualCaptureController` | Yes, elsewhere | `ProjectMaelstrom/Utilities/ManualCaptureController.cs`, not `DevTools/` | Perspective + Trust |
 
-Corrections to the previous draft:
+Findings from the search:
 
 - `ReflexPolicy` as "a local quantized model with latency under 5 ms" is not implemented. What exists is a stub that proposes `NoOp`. Treat that row as aspirational.
 - `NavigationMesh` was not found by name. Whether navigation exists under another name was not checked.
-- The previous draft stated a fixed confidence threshold of 0.8 for the arbiter. The code takes the threshold as a constructor argument (`Arbiter::new(threshold)`) and compares model confidence with the larger of that and the request's required confidence. No 0.8 literal was found in `maelstrom-core/src/lib.rs`.
+- The arbiter's confidence threshold is a constructor argument (`Arbiter::new(threshold)`); the arbiter compares model confidence with the larger of that and the request's required confidence. No fixed 0.8 literal was found in `maelstrom-core/src/lib.rs`.
 - NOT FOUND by search, so unverified: `DXGI` capture in `maelstrom-platform/src/lib.rs`, and `SendInput` or `PostMessage` in `maelstrom-fallback/src`. The implementation may live in another file or crate.
-- Sixteen rows is a sample, not the whole workspace: the five Rust crates define 66 top-level public items. Earlier language about "every major subsystem" is withdrawn.
+- Sixteen rows is a sample, not the whole workspace: the five Rust crates define 66 top-level public items.
 
 ## 2. Candidate observations
 
@@ -74,9 +74,9 @@ Takeover replay buffer (training data)
 
 | Item | Status |
 | :--- | :--- |
-| 16 constructs searched by name | 14 found (2 at a different path than the draft stated), 2 not found |
+| 16 constructs searched by name | 14 found, 2 not found |
 | Classification reviewed by a second party | No |
 | Tested against a case designed to fail | No |
-| Claim that Maelstrom "passes" the Atlas | Withdrawn; the exercise cannot fail as run |
+| Maelstrom "passes" the Atlas | Not claimed; the exercise cannot fail as run |
 
 Next: re-run this audit on the rebuilt, game-agnostic layout, and add one case that could count against the primitives, with the failure condition written down in advance.

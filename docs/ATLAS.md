@@ -2,7 +2,7 @@
 
 **Status:** Working draft, unreviewed by a second model family. Not part of the governing document hierarchy; whether it becomes one is the owner's decision.
 **Last normalized:** 2026-11-18 against `origin/main` at `cc794cb3`.
-**Original draft:** Gemini seat, 2026-11-17 (per the checkout identity and the owner's report). Normalized by the Claude seat, which makes the Claude seat a contributor, not an independent reviewer. Independent review is still needed.
+**Origin:** first drafted by the Gemini seat on 2026-11-17 (attribution inferred from the checkout identity; the draft was never committed), then normalized by the Claude seat. That makes the Claude seat a contributor, not an independent reviewer, so independent review is still needed.
 
 ## Relationship to other documents
 
@@ -84,16 +84,16 @@ Notes:
 | :--- | :--- | :--- | :--- |
 | The six primitives as vocabulary | Hypothesized | Classification tables in section 7 | A test that could fail; use on a system not built with them in mind |
 | State, Transition, Relationship, Constraint as code types | Implemented | `EngineSnapshotPod`, `ChannelTopologyPod`, governance interlocks, scan reducers | That every type maps cleanly (see the coupling notes in section 8) |
-| Trust as evaluated function | Implemented (in `aaroneous-devtools`) | Independence and review-carry logic in `steward` | Not examined in this review beyond file names |
+| Trust as evaluated function | Implemented (in `aaroneous-devtools`) | Independence and review-carry logic in `steward` | Not examined here beyond file names and a few struct fields |
 | Perspective | Implemented (in `aaroneous-devtools`) | Role and lens constants in `steward/src/cards.rs` | That lens rotation changes outcomes |
 | Resource as derived | Hypothesized | Used in formulas | A case where it cannot reduce |
 | Six-primitive sufficiency | Hypothesized | No remainder found in the items classified | An adversarial case; the classifier can always choose a formula, so "none found" is weak evidence |
-| Omni graph ingestion | Aspirational | A hand-built dataset existed in a draft; it is not part of this change | Any ingestion into the `omni` crate |
+| Omni graph ingestion | Aspirational | No dataset in the repository | Any ingestion into the `omni` crate |
 | Chimera distance optimization | Aspirational | None | An optimizer; a definition of distance |
 
 ## 4. Repository census (author-supplied)
 
-The author listed eleven repositories. This review examined `aaroneous` (this repository) and `aaroneous-devtools` directly, and the Maelstrom tree under AutoWizard101 partially (see [MAELSTROM_PRIMITIVE_AUDIT.md](MAELSTROM_PRIMITIVE_AUDIT.md)). The other rows are the author's reading and were not checked. The census may be out of date: Maelstrom is now developed under AutoWizard101, and the owner intends the two to progress together.
+The author listed eleven repositories. `aaroneous` (this repository) and `aaroneous-devtools` were examined directly, and the Maelstrom tree under AutoWizard101 partially (see [MAELSTROM_PRIMITIVE_AUDIT.md](MAELSTROM_PRIMITIVE_AUDIT.md)). The other rows are the author's reading and were not checked. The census may be out of date: Maelstrom is now developed under AutoWizard101, and the owner intends the two to progress together.
 
 | Repository | Primary purpose | Concept it is said to own | Examined here |
 | :--- | :--- | :--- | :--- |
@@ -219,7 +219,7 @@ Coupling note: `SpecialistBudget` holds token allocation (`tokens`, `max_tokens`
 | `SpatialFrustum` | `query_engine.rs` | Layer 1 | Constraint | Region bounds for queries. |
 | `OmniQueryFilter` | `query_engine.rs` | Layer 1 | Perspective + Constraint | Filter over types, statuses, domains and frusta. |
 | `OmniQueryEngine` | `query_engine.rs` | Layer 1 | Capability | Query evaluation. |
-| `OmniEngine` | `lib.rs` | Layer 3 | State + Relationship | Holds nodes and galaxies behind `Arc<RwLock<..>>`. The previous draft gave this the Guild formula; that was a copy error and is corrected here. |
+| `OmniEngine` | `lib.rs` | Layer 3 | State + Relationship | Holds nodes and galaxies behind `Arc<RwLock<..>>`. |
 | `NonOverlapSolver` | `spatial_layout.rs` | Layer 1 | Capability | Layout solver. |
 | `RectAabb` | `spatial_layout.rs` | Layer 1 | Constraint | Axis-aligned box. |
 | `WindowArrangementStrategy` | `spatial_layout.rs` | Layer 1 | Perspective | Variants: Cascade, TileHorizontal, TileVertical, TileGrid, AabbRepulsion. |
@@ -239,13 +239,11 @@ Not yet classified: `BoundingBox3D` (`vector_index.rs`); `ConstellationLinks` an
 
 Coupling note: `StarNode` carries persistent fields (id, title, node type, links) and display fields (`activity_pulse`, a glow intensity). That puts a relationship record and a visual state in one struct.
 
-Removed from the previous draft: the "120 FPS" description of `EcsGalaxyEngine`, which no code in `ecs_cluster.rs` supports.
-
 ### 7.4 Audit 005: `steward` and the Guild contract (in `aaroneous-devtools`; author's classification, partly checked)
 
 Checked on 2026-11-18: the files `local_authority.rs`, `independence.rs`, `review_carry.rs`, `receipts.rs`, `board.rs`, `cards.rs` exist under `foundation/crates/steward/src`; `Principal` carries `family`, `roles`, `platforms` and a private `public_key`; `Policy` carries `minimum_reviewers` and `minimum_families`; review-carry statuses include `Carried`, `ChangedMainAlsoMoved` and `NewSinceReview`. Everything else in this audit is the author's reading.
 
-Correction to the previous draft: roles and lenses in `cards.rs` are string constants (`DEFAULT_ROLES`, `LENSES`), not types. A "task card" is a JSON object built by `card_for` and `enrich_card`; there is no `TaskCard` Rust type.
+Roles and lenses in `cards.rs` are string constants (`DEFAULT_ROLES`, `LENSES`), not types. A "task card" is a JSON object built by `card_for` and `enrich_card`; there is no `TaskCard` Rust type.
 
 | Item | Location | Formula | Coupling note |
 | :--- | :--- | :--- | :--- |
@@ -257,13 +255,13 @@ Correction to the previous draft: roles and lenses in `cards.rs` are string cons
 | Task card (JSON) | `cards.rs` | Intent + Perspective + Constraint | Observed condition and shell recipe are fields of one object |
 | `AppendReceipt` | `board.rs` | Artifact | Not checked here |
 
-### 7.5 Audits 006 to 008: Library, Merlin, MyFortress, AutoWizard101, DanceBot (author-reported, not examined)
+### 7.5 Not yet audited: Library, Merlin, MyFortress, AutoWizard101, DanceBot
 
-The previous draft classified constructs in repositories that were not opened for this review. Those rows are removed from this normalized file rather than repeated unverified. The author's claims that knowledge reduces to Artifact plus Relationship and reasoning to Perspective acting on State under Constraints are kept as candidate reductions in section 2. The author's statements that identity, economics and time "survive cleanly" are withdrawn: they are open questions (section 0).
+No constructs from these repositories are classified here, because their sources were not opened. The claims that knowledge reduces to Artifact plus Relationship and reasoning to Perspective acting on State under Constraints are carried as candidate reductions in section 2. Identity, economics and time are open questions (section 0), not settled.
 
 ## 8. Coupling notes (candidate anti-patterns)
 
-The previous draft scored constructs from 0.0 to 1.0 and reported an ecosystem average. The scores were hand-assigned, so no average is reported here. Three coupling patterns recur in the notes above and are kept as hypotheses to test:
+No numeric score or ecosystem average is reported, because any score assigned by hand would only restate the author's judgment. Three coupling patterns recur in the notes above and are kept as hypotheses to test:
 
 1. State plus behaviour: an observed condition bundled with the procedure that remedies it (the task-card JSON; `ObservationFramePod` in part).
 2. Identity plus role: who an entity is bundled with what it may do and where it runs (`Principal`).
@@ -273,7 +271,7 @@ A numeric purity metric would need an agreed rubric and scoring done from code, 
 
 ## 9. Reference points for a from-scratch build (not adopted)
 
-For orientation only. None of these is a dependency, a recommendation or a decision, and no property claimed in the previous draft (such as "zero-allocation" for a message broker) was verified. Any adoption goes through AGENTS.md section 4 (dependency admission scoring), and each tool's maintenance status must be checked first.
+For orientation only. None of these is a dependency, a recommendation or a decision, and no property of these tools (for example allocation behaviour) has been verified here. Any adoption goes through AGENTS.md section 4 (dependency admission scoring), and each tool's maintenance status must be checked first.
 
 | Area | Candidates named by the author |
 | :--- | :--- |
@@ -297,5 +295,3 @@ For orientation only. None of these is a dependency, a recommendation or a decis
 | 4. Classify the unclassified items in sections 7.2 and 7.3 | Not started |
 | 5. Run a falsification case: classify a system not built with these primitives, stating beforehand what would count as failure | Not started |
 | 6. Apply the same method to Maelstrom as it is rebuilt to be game-agnostic | Not started |
-
-Further reading: the review that led to this normalization is `docs/ATLAS_REVIEW_2026-11-18.md` in the original checkout (not part of this change).
