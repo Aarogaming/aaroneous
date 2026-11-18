@@ -38,6 +38,19 @@ ignore = [
     "RUSTSEC-2026-0196", # cgmath 0.18.0, unmaintained
     "RUSTSEC-2026-0197", # cgmath 0.18.0, unsound (swap_columns, unused here)
     "RUSTSEC-2024-0436", # paste 1.0.15, unmaintained
+    # chrono 0.4.45, unmaintained (informational; no vulnerability, no patched
+    # version). Evidence, 2026-11-18: the maintainer soft-deprecated chrono and
+    # chrono-tz in January 2026, filed this advisory himself, and closed
+    # chronotope/chrono#1768 on 2026-11-17 with no successor; last release
+    # 0.4.45 on 2026-06-04. It is a direct dependency of 8 crates
+    # (hypervisor, adaptation_engine, adaptation_plane, capabilities,
+    # coordinator, omni, orchestrator, studio_hud), so it cannot be dropped in
+    # a CI-fix pass: stored text uses `+00:00` (to_rfc3339) while serde JSON
+    # uses `Z`, and cluster_db sorts on the text columns. EXIT: replace behind
+    # a project-owned timestamp type and delete this entry when chrono leaves
+    # the lockfile; see docs/CHRONO_DECISION_2026-11-18.md. Mirrored in
+    # .cargo/audit.toml by convention (cargo-audit only warns on it).
+    "RUSTSEC-2026-0543",
     # Transitive via candle-core v0.11.0; ZipStreamReader::extract() / ZipArchive::extract()
     # is not called anywhere in this workspace (grepped: zero ZipArchive / ZipStreamReader usage).
     "RUSTSEC-2026-0367",
