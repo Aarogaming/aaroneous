@@ -42,17 +42,17 @@ All metrics below are derived directly from authenticated recursive Git tree ins
 | Repository | Head Ref & Commit | Tree Entries | Blobs (Files) / Dirs | Top File Extensions (Count & %) | Verified Core Sources & Entrypoints |
 | :--- | :--- | ---: | :--- | :--- | :--- |
 | **`aaroneous`** | `main` @ `cc794cb3` | 1,346 | 1,094 files / 252 dirs | `.rs` (766, 70.0%), `.md` (125, 11.4%), `.json` (80, 7.3%), `.toml` (64, 5.9%) | `core/hypervisor`, `crates/compute`, `crates/governance`, `crates/wire`, `crates/ipc_bus` |
-| **`aaroneous-devtools`** | `main` @ `a87ec8f2` | 598 | 487 files / 111 dirs | `.md` (119, 24.4%), `.json` (103, 21.1%), `.rs` (88, 18.1%), `.py` (72, 14.8%) | `foundation/crates/steward`, `foundation/crates/guild`, `scripts/merge_gate.py`, `gui/` |
-| **`AaroneousAutomationSuite`** | `master` @ `4b52088a` | 6,669 | 6,254 files / 414 dirs | `.md` (2,486, 39.7%), `.json` (2,060, 32.9%), `.py` (1,105, 17.7%), `.meta` (185, 3.0%), `.cs` (79, 1.3%) | `src/kernel/fix_kernel.py`, `genome/achievements/`, `plugins/architect.py`, `AAS_Launcher.bat` |
-| **`Maelstrom`** | `main` @ `bb6e3608` | 2,073 | 1,728 files / 345 dirs | `.png` (325, 18.8%), `.py` (240, 13.9%), `.jpg` (168, 9.7%), `.cs` (152, 8.8%), `.json` (118, 6.8%) | `Client/merlin_overlay.py`, `minigames/dueling_diego.py`, `Combat/spell_selector.py` |
+| **`aaroneous-devtools`** | `main` @ `a87ec8f2` | 598 | 487 files / 111 dirs | `.md` (119, 24.4%), `.json` (103, 21.1%), `.rs` (88, 18.1%), `.py` (72, 14.8%) | `foundation/crates/steward`, `foundation/crates/foundation_cli/src/guild.rs`, `scripts/merge_gate.py`, `gui/` |
+| **`AaroneousAutomationSuite`** | `master` @ `4b52088a` | 6,669 | 6,254 files / 414 dirs | `.md` (2,486, 39.7%), `.json` (2,060, 32.9%), `.py` (1,105, 17.7%), `.meta` (185, 3.0%), `.cs` (79, 1.3%) | `fix_kernel.py`, `repair_kernel.py`, `plugins/architect.py`, `AAS_Launcher.bat` |
+| **`Maelstrom`** | `main` @ `bb6e3608` | 2,073 | 1,728 files / 345 dirs | `.png` (325, 18.8%), `.py` (240, 13.9%), `.jpg` (168, 9.7%), `.cs` (152, 8.8%), `.json` (118, 6.8%) | `Client/merlin_overlay.py`, `minigames/dueling_diego.py`, `src/ProjectMaelstrom/Scripts/Library/Deimos-Wizard101/src/combat_cache.py` |
 | **`AutoWizard101`** | `main` @ `5b5c2400` | 3,888 | 3,361 files / 527 dirs | `.png` (588, 17.5%), `.gif` (551, 16.4%), `.js` (388, 11.5%), `.py` (210, 6.2%), `.jpg` (168, 5.0%) | `DevTools/UiAuditRunner/Program.cs`, `HandoffTray/BotApiClient.cs`, template matching assets |
-| **`Wizard101_DanceBot`** | `main` @ `ca0ec613` | 63 | 55 files / 8 dirs | `.py` (21, 38.2%), `.png` (18, 32.7%), `(no_ext)` (2, 3.6%), `.md` (2, 3.6%), `.ico` (2, 3.6%) | `calibrate_arrows.py`, `dance_game.py`, `gui.py`, `image.py` |
-| **`Guild`** | `main` @ `b3749df8` | 43,099* | 38,317 files / 4,775 dirs | `.txt` (20,232), `(no_ext)` (5,023), `.md` (3,110), `.py` (2,771), `.json` (2,278) | Python IPC hub (`core/ipc_hub.py`); *truncated at GitHub API cap; includes 1,966 blobs under `.venv_precommit/` |
+| **`Wizard101_DanceBot`** | `main` @ `ca0ec613` | 63 | 55 files / 8 dirs | `.py` (21, 38.2%), `.png` (18, 32.7%), `(no_ext)` (2, 3.6%), `.md` (2, 3.6%), `.ico` (2, 3.6%) | `dance_game.py`, `image.py`, `gui.py`, `main.py` |
+| **`Guild`** | `main` @ `b3749df8` | 43,099* | 38,317 files / 4,775 dirs | `.txt` (20,232), `(no_ext)` (5,023), `.md` (3,110), `.py` (2,771), `.json` (2,278) | Multi-process tooling (`tools/maelstrom_ipc_tail.py`, `uaf/orchestrator.py`); *truncated at GitHub API cap; includes 1,966 blobs under `.venv_precommit/` |
 | **`Merlin`** | `main` @ `191b9371` | 5,295 | 4,606 files / 689 dirs | `.json` (1,411, 30.6%), `(no_ext)` (1,134, 24.6%), `.timestamp` (530, 11.5%), `.d` (465, 10.1%), `.rmeta` (437, 9.5%) | Multi-stack reasoning engine (Electron JS, Kotlin Android/Desktop, Unity C#) |
 | **`MyFortress`** | `main` @ `3a9b922f` | 383 | 350 files / 33 dirs | `.json` (238, 68.0%), `.py` (60, 17.1%), `.md` (34, 9.7%), `(no_ext)` (7, 2.0%) | `gateway/api/grpc_server.py`, `gateway/api/intelligence_routes.py`, `gateway/api/middleware.py` |
 | **`Library`** | `main` @ `9ee5442d` | 340 | 282 files / 58 dirs | `.json` (112, 39.7%), `.md` (75, 26.6%), `.py` (63, 22.3%), `(no_ext)` (13, 4.6%) | `plugins/catalog/plugin.py`, `plugins/discovery_engine/plugin.py`, `scripts/aas_discovery.py` |
 | **`Workbench`** | `main` @ `7df1b0ca` | 1,198 | 1,034 files / 164 dirs | `.py` (586, 56.7%), `.md` (88, 8.5%), `.json` (79, 7.6%), `.cs` (77, 7.4%), `.ps1` (52, 5.0%) | `Assets/asset_ingestion.py`, `Assets/asset_manager.py`, `Assets/license_consolidator.py` |
-| **`AndroidApp`** | `main` @ `b68dbf35` | 328 | 249 files / 79 dirs | `.kt` (134, 53.8%), `.xml` (34, 13.7%), `.md` (30, 12.0%), `.json` (14, 5.6%) | `AccessibilityChecksRule.kt`, mobile client interface, mock service managers |
+| **`AndroidApp`** | `main` @ `b68dbf35` | 328 | 249 files / 79 dirs | `.kt` (134, 53.8%), `.xml` (34, 13.7%), `.md` (30, 12.0%), `.json` (14, 5.6%) | `app/src/androidTest/java/com/aaroneous/AccessibilityChecksRule.kt`, mobile client interface |
 
 ---
 
@@ -69,7 +69,7 @@ Every repository can be analyzed through the six Layer 0 primitives:
 | **`AutoWizard101` / `DanceBot`** | Target Environment Adapters | **State (Facts), Relationship** | Domain adapters. Ingests game memory and UI trees into typed fact structures. Facts describe reality; never self-authorize. |
 | **`Guild`** | Multi-Agent Institution | **Trust, Relationship** | Trust applied to collective execution: peer admission, agent role assignments, reservation budgets, delegation graphs. |
 | **`Merlin`** | Reasoning & Model Routing | **Transition (Proposals), Perspective** | Strategic hypothesis generation. Proposes candidate state transitions; never executes or authorizes them directly. |
-| **`MyFortress`** | Credential Enclave & Security Boundary | **Constraint, Trust** | Trust applied to authority: cryptographic key fences, credential enclaves, zero ambient authority enforcement. Issues authority grants; never executes actions. |
+| **`MyFortress`** | Credential Enclave & Security Boundary | **Constraint, Trust** | `[Hypothesized]` Trust applied to authority: cryptographic key fences, credential enclaves, zero ambient authority enforcement. Issues authority grants; never executes actions. |
 | **`Library`** | Persistent Memory & Provenance | **State (History), Trust** | Trust applied to knowledge: immutable governed component records, historical decisions, dependency tracking, reproducible projections. |
 | **`Workbench`** | Diagnostic Visualizer & Asset Catalog | **Perspective, State** | Read-only instrumentation, asset indexing, telemetry inspection viewports. Reads state; never performs state transitions. |
 | **`AndroidApp`** | Mobile Client Adapter | **Relationship, Perspective** | Configured remote interaction boundary, lightweight mobile viewports without ambient host access. |
@@ -132,17 +132,17 @@ Inspection of the repository trees reveals architectural friction where implemen
 
 ### 5.3 `Guild` & `AAS`
 - **Vendored Dependency Bloat**: `[Observed]` `Guild` contains 38,317 checked-in blobs, including 1,966 files under `.venv_precommit/`, embedding third-party Python virtual environment artifacts directly into the git tree.
-- **Authority Conflation in AAS**: Orchestration scripts (`AAS_Launcher.bat`, `fix_kernel.py`) mix process launch state with execution privileges, violating zero ambient authority.
+- **Authority Conflation in AAS**: `[Hypothesized]` Orchestration scripts (`AAS_Launcher.bat`, `fix_kernel.py`) mix process launch state with execution privileges, which risks violating zero ambient authority.
 
 ### 5.4 `Maelstrom` & `AutoWizard101`
-- **Capability Coupled to Theme**: `MacroCard` is coupled to `AutomationSchool`. Minigame implementations (`dueling_diego.py`) conflate image matching (`Facts`) with input actuation (`Actions`).
-- **Language Sprawl**: `AutoWizard101` contains both C# UI runners (`DevTools/UiAuditRunner`) and Python bot runners without a formalized IPC contract between them.
+- **Capability Coupled to Theme**: `[Hypothesized]` Minigame implementations conflate image matching (`Facts`) with input actuation (`Actions`).
+- **Language Sprawl**: `[Observed]` `AutoWizard101` contains both C# UI runners (`DevTools/UiAuditRunner`) and Python bot runners without a formalized IPC contract between them.
 
 ### 5.5 `Merlin`
-- **Client Duplication**: Separate chat implementations exist in JavaScript (Electron), Kotlin (Android & Desktop), Python (CLI & Slack), and C# (Unity). The reasoning protocol (`Proposals`) is duplicated across four language ecosystems rather than exposed behind a unified RPC contract.
+- **Client Duplication**: `[Hypothesized]` Separate client wrappers exist across JavaScript (Electron), Kotlin (Android & Desktop), Python, and C# (Unity), suggesting a duplicated reasoning protocol rather than a unified RPC contract.
 
 ### 5.6 `MyFortress` & `Library`
-- **Data-Plane vs. Control-Plane Smear**: `Library`'s catalog plugins mix immutable governed component records with ephemeral operational discovery caches.
+- **Data-Plane vs. Control-Plane Smear**: `[Hypothesized]` `Library`'s catalog plugins mix immutable governed component records with ephemeral operational discovery caches.
 
 ---
 
@@ -196,7 +196,7 @@ pub trait ActionSink {
 ### Pillar 4: Pure Runtime Cryptographic Trust (`[Aspirational]`)
 In accordance with AGENTS.md Section 4 ("Aaroneous never depends on external tooling"), the runtime microkernel does not depend on devtools scripts or external tooling formats:
 - Dynamic configuration updates, mission boundaries, and model interventions carry pure Ed25519 signatures verified directly by `core-contracts` and `governance`.
-- Build-time verification (`merge_gate.py`) and runtime governance share the same mathematical principles (Ed25519 cryptography, quorum thresholds) while remaining cleanly decoupled in implementation.
+- Build-time verification (`merge_gate.py`) and runtime governance share the same mathematical principles (Ed25519 cryptography, quorum thresholds) while remaining completely decoupled in implementation.
 
 ---
 
