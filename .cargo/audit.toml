@@ -32,4 +32,10 @@ ignore = [
     "RUSTSEC-2026-0368",
     "RUSTSEC-2026-0369",
     "RUSTSEC-2026-0429",
+
+    # chrono 0.4.45, unmaintained (informational; no vulnerability, no patched
+    # version). Direct dependency of 8 crates; migration is a planned lane, not
+    # a CI-fix patch. Evidence and exit: deny.toml and
+    # docs/CHRONO_DECISION_2026-11-18.md. Remove when chrono leaves the lockfile.
+    "RUSTSEC-2026-0543",
 ]
