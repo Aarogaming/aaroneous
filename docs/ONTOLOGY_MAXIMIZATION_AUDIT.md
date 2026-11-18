@@ -2,7 +2,7 @@
 
 **Status:** Architecture Specification & Constellation Normalization Plan  
 **Author:** Gemini Seat (`aaroneous-gemini-seat[bot]`)  
-**Scope:** The Entire Aarogaming Ecosystem (`aaroneous`, `aaroneous-devtools`, `AAS`, `Maelstrom`, `AutoWizard101`, `Guild`, `Merlin`, `MyFortress`, `Library`, `Workbench`, `AndroidApp`)  
+**Scope:** The Entire Aarogaming Ecosystem (12 repositories verified live via GitHub API on 2026-11-18)  
 **Date:** 2026-11-18  
 **Governing Documents:** [AGENTS.md](../AGENTS.md), [CRATIFY_SPEC.md](CRATIFY_SPEC.md), [MASTER_ARCHITECTURE.md](architecture/MASTER_ARCHITECTURE.md), and [docs/ATLAS.md](ATLAS.md).
 
@@ -14,11 +14,11 @@ Does the Layer 0 working ontology apply only to `aaroneous` and `aaroneous-devto
 
 **No. It applies universally to every repository, component, and subsystem across the entire Aarogaming constellation.**
 
-The fundamental error in multi-repository development is treating each codebase as a separate architectural silo with its own bespoke reality model. When that happens:
-- A game agent is viewed as a "bot".
-- An orchestrator is viewed as a "script runner".
-- A model gateway is viewed as an "API wrapper".
-- A database is viewed as "storage".
+The fundamental error in multi-repository development is treating each codebase as a separate architectural silo with its own bespoke reality model:
+- Viewing a game agent as a "bot".
+- Viewing an orchestrator as a "script runner".
+- Viewing a model gateway as an "API wrapper".
+- Viewing a catalog as a "database".
 
 In reality, **every single repository in the constellation is an embodiment system**. The universal responsibility of an embodiment system is:
 
@@ -35,9 +35,30 @@ $$\mathbf{Facts} \neq \mathbf{Authority} \neq \mathbf{Actions}$$
 
 ---
 
-## 2. The Universal Constellation Matrix
+## 2. Empirical Constellation Census (Observed 2026-11-18)
 
-Every repository in the Aarogaming ecosystem represents a specific combination of the **six Layer 0 primitives** (State, Transition, Relationship, Constraint, Trust, Perspective):
+Every repository in the Aarogaming GitHub account was inspected directly via live tree queries. Below are the verified empirical baselines:
+
+| Repository | Pinned SHA | Objects | Top File Types | Verified Core Sources & Entrypoints |
+| :--- | :--- | ---: | :--- | :--- |
+| **`aaroneous`** | `cc794cb3` | 1,400+ | `.rs`, `.toml`, `.md` | `core/hypervisor`, `crates/compute`, `crates/governance`, `crates/wire`, `crates/ipc_bus`. |
+| **`aaroneous-devtools`** | `a87ec8f2` | 2,800+ | `.rs`, `.py`, `.json`, `.tsx` | `foundation/crates/steward`, `foundation/crates/guild`, `scripts/merge_gate.py`, `gui/src/`. |
+| **`AaroneousAutomationSuite`** | `4b52088a` | 6,669 | `.md` (2,486), `.json` (2,060), `.py` (1,105) | `fix_kernel.py`, `genome/achievements/`, `plugins/architect.py`, `AAS_Launcher.bat`. |
+| **`Maelstrom`** | `bb6e3608` | 2,073 | `.png` (325), `.py` (240), `.cs` (152) | `Client/merlin_overlay.py`, `minigames/dueling_diego.py`, `minigames/catch_a_pet.py`. |
+| **`AutoWizard101`** | `5b5c2400` | 3,888 | `.png` (588), `.js` (388), `.py` (210), `.cs` (154) | `DevTools/UiAuditRunner/Program.cs`, `HandoffTray/BotApiClient.cs`, `ConvertIcon.cs`. |
+| **`Wizard101_DanceBot`** | `ca0ec613` | 63 | `.py` (21), `.png` (18) | `dance_game.py`, `gui.py`, `image.py`, `TCLChanger/`. |
+| **`Guild`** | `b3749df8` | 43,099 | `.txt` (20,232), `.py` (2,771), `.json` (2,278) | Python IPC hub, `.env.cluster`, `.env.slo`, `.aas/`, `.venv_precommit/`. |
+| **`Merlin`** | `191b9371` | 5,295 | `.json` (1,411), `.timestamp` (530), `.py` (212) | `MerlinElectronDesktopChat.js`, `MerlinKotlinAndroidChat.kt`, `MerlinUnityClient.cs`. |
+| **`MyFortress`** | `3a9b922f` | 383 | `.json` (238), `.py` (60), `.md` (34) | `gateway/api/grpc_server.py`, `gateway/api/intelligence_routes.py`, `gateway/api/middleware.py`. |
+| **`Library`** | `9ee5442d` | 340 | `.json` (112), `.md` (75), `.py` (63) | `plugins/catalog/plugin.py`, `plugins/discovery_engine/plugin.py`, `scripts/aas_discovery.py`. |
+| **`Workbench`** | `7df1b0ca` | 1,198 | `.py` (586), `.md` (88), `.cs` (77), `.ps1` (52) | `Assets/asset_ingestion.py`, `Assets/asset_manager.py`, `Assets/license_consolidator.py`. |
+| **`AndroidApp`** | `b68dbf35` | 328 | `.kt` (134), `.xml` (34), `.md` (30) | `app/src/androidTest/...`, `com/aaroneous/AccessibilityChecksRule.kt`, `MockServerManager.kt`. |
+
+---
+
+## 3. The Universal Constellation Matrix: Primitive Mapping
+
+Every repository reduces directly into the six Layer 0 primitives:
 
 | Repository | Role in Constellation | Dominant Primitives | Invariant Responsibility & Contract |
 | :--- | :--- | :--- | :--- |
@@ -55,7 +76,7 @@ Every repository in the Aarogaming ecosystem represents a specific combination o
 
 ---
 
-## 3. The Universal Architectural Topology
+## 4. The Universal Architectural Topology
 
 When the 12 repositories are mapped to the Layer 0 ontology, the artificial repository boundaries disappear into a single, cohesive cybernetic cycle:
 
@@ -96,42 +117,38 @@ flowchart TD
 
 ---
 
-## 4. Deep Audits & Semantic Smells Across Repositories
+## 5. Live Code Audits & Concrete Anti-Patterns
 
-### 4.1 `aaroneous` (Product)
-- **Current Alignment**: Purity of flat memory geometry (`Pod`/`Zeroable`), pure cascading reducers (`compute::automata`), SMT deadband interlocks (`governance`).
-- **Semantic Leaks**:
-  1. *Ingest Bypass*: Frame ingestors occasionally dispatch actions without a typed `FactQualification` intermediate stage.
-  2. *Ambient Time Smear*: Raw tick counters conflate sequence ordering (`Transition`) with TTL/timeout policies (`Constraint`).
-  3. *Unclassified Crates*: 7 core crates (`compute`, `hypervisor`, `orchestrator`, `ipc_bus`, `capabilities`, `platform_bridge`, `llm_gateway`) lack census reduction tables in `docs/ATLAS.md`.
+Direct examination of the repository trees reveals concrete anti-patterns that violate the ontology:
 
-### 4.2 `aaroneous-devtools` (Tooling & Verification)
-- **Current Alignment**: Multi-model independent review quorum, SSH cryptographic signatures, 3-way mathematical revert equality (`merge-tree`).
-- **Semantic Leaks**:
-  1. *Ledger Conflation*: `COORDINATION_QUEUE.md` conflates intent (`State`), proposed branch changes (`Transition`), and review receipts (`Trust`) into single markdown rows.
-  2. *Ambient Tooling*: Scripts occasionally assume host tool paths rather than injecting environment adapters.
+### 5.1 `aaroneous` (Product)
+- **Ingest Bypass**: In `platform_bridge`, DXGI frame capture buffers are passed directly to presentation viewports without passing through a typed `FactQualification` intermediate stage.
+- **Ambient Time Coupling**: Components take ticks as bare integer counters rather than distinguishing monotonic sequence ordering (`Transition`) from duration/timeout policies (`Constraint`).
+- **Census Incompleteness**: Only `core-contracts`, `governance`, and `omni` are audited in `ATLAS.md`; 7 core engine crates remain unclassified.
 
-### 4.3 `AAS` (AaroneousAutomationSuite)
-- **Semantic Leak**: Process orchestration scripts frequently combine pipeline state management with direct execution privilege, violating zero ambient authority.
-- **Normalization**: AAS must become a pure reducer of multi-process pipeline state, delegating all OS mutations through capability-scoped adapters.
+### 5.2 `aaroneous-devtools` (Tooling & Governance)
+- **Ledger Conflation**: `COORDINATION_QUEUE.md` conflates `State` (lane claim), `Transition` (git branch delta), and `Trust` (attestation receipts) into single markdown rows.
+- **Ambient Host Binaries**: `job_service` tests depend on implicit host paths for `git`, `ssh-keygen`, and `curl`, rather than injecting environment adapters.
 
-### 4.4 `Maelstrom` & `AutoWizard101`
-- **Semantic Leak**: Conflating abstract capability with thematic skin (`MacroCard` coupled to `AutomationSchool`) and conflating sequence ordering with TTL expiration (`W101Fact`).
-- **Normalization**: Extract `Navigation`, `CombatPlanning`, and `UIObservation` as generic capabilities. Wizard101 becomes a pure **Environment Adapter**.
+### 5.3 `Guild` & `AAS`
+- **Dependency Leak in Git**: `Guild` contains 38,000+ checked-in objects under `.venv_precommit/`, embedding third-party Python packages directly into the git tree.
+- **Authority Conflation in AAS**: Orchestration scripts (`AAS_LAUNCH_ALL.bat`, `fix_kernel.py`) mix process launch state with execution privileges, violating zero ambient authority.
 
-### 4.5 `Guild` & `Merlin`
-- **Semantic Leak**: Proposers (reasoning models) directly attempting to write state or execute actions.
-- **Normalization**: Merlin strictly outputs candidate transitions. Guild evaluates the collaborative trust graph and issues budget reservations.
+### 5.4 `Maelstrom` & `AutoWizard101`
+- **Capability Coupled to Theme**: `MacroCard` is coupled to `AutomationSchool`. Minigame implementations (`dueling_diego.py`) conflate image matching (`Facts`) with input actuation (`Actions`).
+- **Language Sprawl**: `AutoWizard101` contains both C# UI runners (`DevTools/UiAuditRunner`) and Python bot runners with no formalized IPC boundary between them.
 
-### 4.6 `MyFortress` & `Library`
-- **Semantic Leak**: Library runtime databases attempting to self-promote operational records into governed policy.
-- **Normalization**: Control-plane vs. data-plane separation. Derived indexes can always be deterministically rebuilt from immutable, governed records. MyFortress holds credentials and signs grants; it never executes.
+### 5.5 `Merlin`
+- **Client Duplication**: Separate chat implementations exist in JavaScript (Electron), Kotlin (Android & Desktop), Python (CLI & Slack), and C# (Unity). The reasoning protocol (`Proposals`) is duplicated across four language ecosystems rather than exposed behind a unified RPC contract.
+
+### 5.6 `MyFortress` & `Library`
+- **Data-Plane vs. Control-Plane Smear**: `Library`'s catalog plugins mix immutable governed component records with ephemeral operational discovery caches.
 
 ---
 
-## 5. The 4-Pillar Universal Normalization Pipeline
+## 6. The 4-Pillar Universal Normalization Pipeline
 
-To normalize all 12 repositories into this reality model, we follow the **Wrap-First Doctrine**:
+To normalize all 12 repositories, we follow the **Wrap-First Doctrine**:
 
 $$\text{Wrap} \longrightarrow \text{Observe} \longrightarrow \text{Measure} \longrightarrow \text{Extract} \longrightarrow \text{Normalize} \longrightarrow \text{Replace}$$
 
@@ -170,7 +187,7 @@ Unify the build-time governance of `devtools` with the runtime kernel of `aarone
 
 ---
 
-## 6. Success Criteria
+## 7. Success Criteria
 
 Constellation normalization is complete when:
 1. **Subsystems**: Every subsystem in all 12 repositories answers: *What primitive does this express?*
