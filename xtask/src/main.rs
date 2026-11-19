@@ -1,6 +1,7 @@
 #![deny(unsafe_code)]
 
 pub mod base36;
+mod check_chrono;
 mod check_deps;
 mod check_unwraps;
 mod encoding;
@@ -26,6 +27,7 @@ fn main() -> Result<()> {
         "check-native" => native_audit::run(),
         "check-unwraps" => check_unwraps::run(&args[2..]),
         "check-deps" => check_deps::run(),
+        "check-chrono" => check_chrono::run(&args[2..]),
         "install" => install::run(&args[2..]),
         "uninstall" => uninstall::run(),
         "package" => package::run(&args[2..]),
@@ -70,6 +72,8 @@ Subcommands:
   check-unwraps       Check unwrap/expect/panic!/assert! counts against the ratchet baseline
                       (--dump-baseline prints current counts in baseline-file format)
   check-deps          Check profile dependency direction against the ratchet baseline
+  check-chrono        Check direct chrono dependencies and Utc::now/Local::now call sites against the ratchet baseline
+                      (--dump-baseline prints current numbers in baseline-file format)
   export-wit          Export WebAssembly Interface Type (WIT) declarations from capabilities
   export-capability-manifest (alias: workspace-metadata)
                       Export strict workspace capability manifest (--workspace-root <PATH> --git-revision <HEX>)

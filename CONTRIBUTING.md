@@ -106,6 +106,7 @@ Code from companion tooling, external projects, or generated drafts follows the 
 8. Emulator harness tests
 9. Unwrap/panic ratchet check (`cargo xtask check-unwraps`, per-package baseline)
 9.5. Profile dependency-direction check (`cargo xtask check-deps`, per-edge baseline)
+9.6. Chrono ratchet check (`cargo xtask check-chrono`, per-package baseline)
 10. Release binary check
 11. Optional feature compilation
 12. Iroh compatibility check

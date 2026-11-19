@@ -1,0 +1,24 @@
+# Ratchet baseline for `cargo xtask check-chrono` (AGENTS.md section 2, "No
+# Ambient Clock"; docs/CHRONO_DECISION_2026-11-18.md; RUSTSEC-2026-0543).
+# Each line is `package calls dep`:
+#   calls = `Utc::now` / `Local::now` paths in the package's production code
+#           (tests/, examples/, benches/, build.rs, bootstrap entrypoints,
+#           #[cfg(test)] and #[test] items are excluded; macro bodies that are
+#           not comma-separated expressions are not seen).
+#   dep   = 1 if the package's manifest declares `chrono`, else 0.
+# A package that is not listed has calls = 0 and dep = 0, so a new crate
+# cannot adopt chrono without this file growing, which review will see.
+#
+# This list may only shrink or stay flat: the gate fails if a package's
+# current number exceeds the one recorded here. When you remove a use,
+# lower the number (delete the line at 0 0). Do not leave it stale.
+# Exit: when `chrono` is gone from Cargo.lock this file is empty and the
+# check can be deleted together with the deny.toml/audit.toml entries.
+adaptation_engine 4 1
+adaptation_plane 15 1
+capabilities 11 1
+coordinator 16 1
+hypervisor 13 1
+omni 3 1
+orchestrator 2 1
+studio_hud 0 1

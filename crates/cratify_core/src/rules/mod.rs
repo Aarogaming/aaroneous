@@ -1,3 +1,4 @@
+pub mod ambient_clock;
 pub mod memory_geometry;
 pub mod no_ambient_authority;
 pub mod no_workspace_prefix_stutter;
