@@ -54,6 +54,7 @@ The canonical specification manual is consolidated into core reference manuals a
 | [`cartridges.md`](./cartridges.md) | Machine-Native Container Format | `.si` v3.0 format, `rkyv` zero-copy archives, continuous HiPPO State-Space Model (SSM) tensor layout, `cubecl` GPU scan dispatch. |
 | [`roadmap.md`](./roadmap.md) | Frontiers & Long-Term Milestones | 5 Architectural Pillars, 7-Horizon Frontier Matrix (H1–H7), Phase 38 deliverables, and historical phase index. |
 | [`operations.md`](./operations.md) | Operational Playbook & Auxiliary Context | Reactive Ingestion & Assimilation, Internal/External Dogfooding, Local Model integration, and physical engineering boundaries. |
+| [`WORKER_MANUAL.md`](./WORKER_MANUAL.md) | Worker Onboarding (proposed, not adopted) | One-page restatement of how a worker takes a job, stays in scope, proves it and hands off; sources in [`WORKER_FIELD_MAP.md`](./WORKER_FIELD_MAP.md). |
 | `archive/` | Historical Audit & Transition Sprawl | Retained legacy documentation, batch audits, historical benchmarks, and pre-v1.7.0 exploration documents. |
 
 ---
