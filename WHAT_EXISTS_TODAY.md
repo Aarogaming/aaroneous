@@ -65,7 +65,7 @@ benches                       # Criterion benchmark suite
 | Native dependency provenance | `cargo xtask check-native` (Gate 3.5) passes against a checked-in 27-entry allowlist (`native-policy.toml`). RocksDB and the unused `libloading` dependency are fully removed — see Codex's `aaroneous-devtools/inventories/C68_NATIVE_DEPENDENCY_BOUNDARY_AUDIT_2026-09-25.md` for what's still native (allocator, SQLite, tokenizer, TLS crypto) and not yet isolated. |
 | Structural/semantic invariants | `cargo run -p ast_auditor -- audit core/ crates/ dev/emulator_harness/` reports **752 files scanned, 0 violations** as of this writing. |
 | Profile dependency direction | Tracked but not yet enforced; current baseline is a dated, cross-referenced 14-edge table in `docs/CRATIFY_SPEC.md` section 2.3. |
-| Full verification gate | `cargo xtask gate` — all 11 gates plus Gate 3.5 — passes end-to-end on `main`, toolchain pinned via `rust-toolchain.toml` to match CI's `dtolnay/rust-toolchain@stable`. |
+| Full verification gate | `cargo xtask gate` runs the gates listed in `AGENTS.md` section 6, with the toolchain pinned via `rust-toolchain.toml` to match CI's `dtolnay/rust-toolchain@stable`. Whether `main` currently passes is shown by CI, not asserted here; this row previously stated that it passed end-to-end, which a static file cannot keep true. |
 
 ---
 
