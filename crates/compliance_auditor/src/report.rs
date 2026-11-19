@@ -8,12 +8,16 @@ use serde::Serialize;
 
 use crate::verify::{Finding, Verdict};
 
+/// Upper bound on structural finding lines kept in one report, so a large
+/// change cannot flood the PR comment.
+const MAX_STRUCTURAL_LINES: usize = 20;
+
 #[derive(Debug, Serialize)]
 pub struct ComplianceReport {
     pub base_sha: String,
     pub head_sha: String,
     pub files_reviewed: Vec<String>,
-    /// Structural invariant violations from `cratify_core::run_workspace_audit`
+    /// Structural invariant violations from `cratify_core::audit_targets`
     /// over the changed files, kept separate from the LLM-derived findings
     /// since they come from a deterministic checker, not a verified opinion.
     pub structural_errors: Vec<String>,
@@ -23,26 +27,45 @@ pub struct ComplianceReport {
 impl ComplianceReport {
     /// Run `ast_auditor`'s deterministic invariant checks over the changed
     /// files that still exist in the working tree (a file the diff deletes
-    /// has nothing left to audit). Best-effort: a checker error is recorded
-    /// as a structural error rather than failing the whole review.
+    /// has nothing left to audit) and that the auditor actually examines
+    /// (Rust source and `Cargo.toml`; see `cratify_core::is_auditable_file`).
+    ///
+    /// A diff with no such file (docs, lockfile, workflow YAML, other TOML)
+    /// returns no structural errors: `ast_auditor audit` on a scope with no
+    /// source reports "No source files were audited" and fails, which says
+    /// nothing about the change. Each real finding is returned as its own
+    /// line with the auditor's own wording and a repo-relative path, capped
+    /// at [`MAX_STRUCTURAL_LINES`]. Uses the non-printing
+    /// `cratify_core::audit_targets`, so nothing reaches stdout (which
+    /// `--json` mode reserves for the report).
     pub fn run_structural_audit(repo: &Path, changed_files: &[String]) -> Vec<String> {
-        let existing: Vec<PathBuf> = changed_files
+        let auditable: Vec<PathBuf> = changed_files
             .iter()
             .map(|f| repo.join(f))
-            .filter(|p| p.is_file())
+            .filter(|p| p.is_file() && cratify_core::is_auditable_file(p))
             .collect();
-        if existing.is_empty() {
+        if auditable.is_empty() {
             return Vec::new();
         }
 
-        match cratify_core::run_workspace_audit(existing) {
-            Ok(()) => Vec::new(),
-            Err(_) => vec![
-                "ast_auditor reported one or more architectural invariant violations; \
-                 re-run `cargo run -p ast_auditor -- audit <paths>` for details."
-                    .to_string(),
-            ],
+        let report = cratify_core::audit_targets(auditable);
+        let prefix = repo.display().to_string();
+        let mut lines: Vec<String> = report
+            .violation_messages()
+            .into_iter()
+            .map(|line| {
+                line.replace(&format!("{prefix}/"), "")
+                    .replace(&format!("{prefix}\\"), "")
+            })
+            .collect();
+        if lines.len() > MAX_STRUCTURAL_LINES {
+            let extra = lines.len() - MAX_STRUCTURAL_LINES;
+            lines.truncate(MAX_STRUCTURAL_LINES);
+            lines.push(format!(
+                "... and {extra} more; re-run `cargo run -p ast_auditor -- audit <paths>` for the full list."
+            ));
         }
+        lines
     }
 
     /// A finding counts against CI gating only once it's Confirmed and came
@@ -99,5 +122,122 @@ impl ComplianceReport {
                 f.justification,
             );
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+
+    fn write(root: &Path, rel: &str, text: &str) {
+        let path = root.join(rel);
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent).expect("create parent dir");
+        }
+        fs::write(path, text).expect("write fixture");
+    }
+
+    fn files(list: &[&str]) -> Vec<String> {
+        list.iter().map(|f| (*f).to_string()).collect()
+    }
+
+    const AMBIENT: &str = "pub fn f() { let _ = std::env::current_dir(); }\n";
+
+    #[test]
+    fn docs_only_diff_reports_nothing() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write(dir.path(), "AGENTS.md", "# notes\n");
+        write(dir.path(), "Cargo.lock", "version = 4\n");
+        write(dir.path(), "deny.toml", "[advisories]\n");
+        write(dir.path(), ".github/workflows/ci.yml", "name: ci\n");
+        write(dir.path(), "xtask/baseline.txt", "a 1\n");
+        let errors = ComplianceReport::run_structural_audit(
+            dir.path(),
+            &files(&[
+                "AGENTS.md",
+                "Cargo.lock",
+                "deny.toml",
+                ".github/workflows/ci.yml",
+                "xtask/baseline.txt",
+            ]),
+        );
+        assert!(errors.is_empty(), "got: {errors:?}");
+    }
+
+    #[test]
+    fn deleted_file_is_ignored() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let errors = ComplianceReport::run_structural_audit(dir.path(), &files(&["src/gone.rs"]));
+        assert!(errors.is_empty(), "got: {errors:?}");
+    }
+
+    #[test]
+    fn clean_rust_reports_nothing() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write(dir.path(), "src/lib.rs", "pub fn f() -> u32 { 1 }\n");
+        let errors = ComplianceReport::run_structural_audit(dir.path(), &files(&["src/lib.rs"]));
+        assert!(errors.is_empty(), "got: {errors:?}");
+    }
+
+    #[test]
+    fn real_violation_is_reported_with_auditor_text_and_relative_path() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write(dir.path(), "src/lib.rs", AMBIENT);
+        let errors = ComplianceReport::run_structural_audit(dir.path(), &files(&["src/lib.rs"]));
+        assert_eq!(errors.len(), 1, "got: {errors:?}");
+        assert!(errors[0].starts_with("src/lib.rs:"), "got: {}", errors[0]);
+        assert!(errors[0].contains("current_dir"), "got: {}", errors[0]);
+        assert!(
+            !errors[0].contains(&dir.path().display().to_string()),
+            "path should be repo-relative: {}",
+            errors[0]
+        );
+    }
+
+    #[test]
+    fn non_rust_files_in_a_mixed_diff_are_not_audited() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write(dir.path(), "README.md", "# hi\n");
+        write(dir.path(), "src/lib.rs", AMBIENT);
+        let errors = ComplianceReport::run_structural_audit(
+            dir.path(),
+            &files(&["README.md", "src/lib.rs"]),
+        );
+        assert_eq!(errors.len(), 1, "got: {errors:?}");
+        assert!(errors[0].contains("current_dir"));
+    }
+
+    #[test]
+    fn unparsable_rust_reports_the_real_parse_error() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        write(dir.path(), "src/lib.rs", "fn (\n");
+        let errors = ComplianceReport::run_structural_audit(dir.path(), &files(&["src/lib.rs"]));
+        assert_eq!(errors.len(), 1, "got: {errors:?}");
+        assert!(
+            errors[0].starts_with("[AUDIT ERROR] "),
+            "got: {}",
+            errors[0]
+        );
+        assert!(errors[0].contains("lib.rs"), "got: {}", errors[0]);
+    }
+
+    #[test]
+    fn long_findings_list_is_capped_with_a_count() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let mut source = String::new();
+        for i in 0..25 {
+            source.push_str(&format!(
+                "pub fn f{i}() {{ let _ = std::env::current_dir(); }}\n"
+            ));
+        }
+        write(dir.path(), "src/lib.rs", &source);
+        let errors = ComplianceReport::run_structural_audit(dir.path(), &files(&["src/lib.rs"]));
+        assert_eq!(errors.len(), MAX_STRUCTURAL_LINES + 1, "got: {errors:?}");
+        assert!(
+            errors[MAX_STRUCTURAL_LINES].contains("and 5 more"),
+            "got: {}",
+            errors[MAX_STRUCTURAL_LINES]
+        );
     }
 }

@@ -59,6 +59,38 @@ impl UnifiedAuditReport {
             || !self.safety_comment_violations.is_empty()
     }
 
+    /// One human-readable line per finding, in the same wording
+    /// [`print_diagnostics`](Self::print_diagnostics) prints, but returned
+    /// instead of written to the process's stdout/stderr. Audit errors come
+    /// first (prefixed `[AUDIT ERROR]`), then each violation.
+    pub fn violation_messages(&self) -> Vec<String> {
+        let mut out: Vec<String> = Vec::new();
+        out.extend(self.errors.iter().map(|e| format!("[AUDIT ERROR] {e}")));
+        out.extend(
+            self.soundness_violations
+                .iter()
+                .map(|v| format!("{}:{}: {}", v.file_path.display(), v.line, v.rule)),
+        );
+        out.extend(self.ambient_violations.iter().map(ToString::to_string));
+        out.extend(self.hot_path_violations.iter().map(ToString::to_string));
+        out.extend(
+            self.prefix_stutter_violations
+                .iter()
+                .map(ToString::to_string),
+        );
+        out.extend(
+            self.memory_geometry_violations
+                .iter()
+                .map(ToString::to_string),
+        );
+        out.extend(
+            self.safety_comment_violations
+                .iter()
+                .map(ToString::to_string),
+        );
+        out
+    }
+
     pub fn print_diagnostics(&self) {
         for error in &self.errors {
             eprintln!("[AUDIT ERROR] {error}");
@@ -191,6 +223,16 @@ pub fn audit_manifest_file(path: &Path, report: &mut UnifiedAuditReport) {
     }
 }
 
+/// True for the only two file kinds the auditor examines: Rust source and
+/// `Cargo.toml` manifests. Every other file (lockfiles, other TOML, Markdown,
+/// YAML, text) is silently skipped by [`audit_entry`], so callers that hand
+/// the auditor a list of changed files should filter with this first instead
+/// of treating "nothing audited" as a failure.
+pub fn is_auditable_file(path: &Path) -> bool {
+    path.extension().is_some_and(|ext| ext == "rs")
+        || path.file_name().is_some_and(|name| name == "Cargo.toml")
+}
+
 fn audit_entry(path: &Path, report: &mut UnifiedAuditReport) {
     if path.extension().is_some_and(|ext| ext == "rs") {
         if let Err(error) = audit_source_file(path, report) {
@@ -201,9 +243,16 @@ fn audit_entry(path: &Path, report: &mut UnifiedAuditReport) {
     }
 }
 
+/// Audit `targets` and return the structured report without printing
+/// anything. This is the collection half of [`run_workspace_audit`]: it does
+/// not add the "No source files were audited" error, so a caller can decide
+/// whether an empty scope is a failure (the CLI gate does; a diff reviewer
+/// whose diff touches no Rust does not).
+///
 /// Generated Cargo output, VCS metadata and JS dependencies are not source.
-/// Explicit targets are never excluded; traversal/read/parse failures fail closed.
-pub fn run_workspace_audit<I, P>(targets: I) -> Result<(), ExitCode>
+/// Explicit targets are never excluded; traversal/read/parse failures are
+/// recorded in `errors` (fail closed).
+pub fn audit_targets<I, P>(targets: I) -> UnifiedAuditReport
 where
     I: IntoIterator<Item = P>,
     P: AsRef<Path>,
@@ -236,6 +285,17 @@ where
                 .push(format!("Missing or unreadable target: {}", path.display()));
         }
     }
+    report
+}
+
+/// Generated Cargo output, VCS metadata and JS dependencies are not source.
+/// Explicit targets are never excluded; traversal/read/parse failures fail closed.
+pub fn run_workspace_audit<I, P>(targets: I) -> Result<(), ExitCode>
+where
+    I: IntoIterator<Item = P>,
+    P: AsRef<Path>,
+{
+    let mut report = audit_targets(targets);
     if report.files_scanned == 0 {
         report.errors.push("No source files were audited".into());
     }
