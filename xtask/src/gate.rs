@@ -200,10 +200,18 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         runner: |root| crate::check_deps::run_with_root(root),
     },
     GateCheckDefinition {
+        id: "check-chrono",
+        name: "9.6. Chrono Ratchet Check",
+        tier: VerificationTier::Tier0Preflight,
+        order: 7,
+        cost_level: "low",
+        runner: |root| crate::check_chrono::run_with_root(root, &[]),
+    },
+    GateCheckDefinition {
         id: "check-native",
         name: "3.5. Native Dependency Boundary Audit",
         tier: VerificationTier::Tier0Preflight,
-        order: 7,
+        order: 8,
         cost_level: "low",
         runner: |root| crate::native_audit::run_with_root(root),
     },
@@ -212,7 +220,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "cargo-deny",
         name: "3.6. Dependency & License Policy (cargo-deny)",
         tier: VerificationTier::Tier1SupplyChain,
-        order: 8,
+        order: 9,
         cost_level: "medium",
         runner: |root| {
             require_tool(
@@ -227,7 +235,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "cargo-audit",
         name: "3.7. RUSTSEC Advisory Audit (cargo-audit)",
         tier: VerificationTier::Tier1SupplyChain,
-        order: 9,
+        order: 10,
         cost_level: "medium",
         runner: |root| {
             require_tool(
@@ -242,7 +250,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "cargo-semver",
         name: "3.8. Semver Compatibility (core-contracts, sdk)",
         tier: VerificationTier::Tier1SupplyChain,
-        order: 10,
+        order: 11,
         cost_level: "medium",
         runner: |root| {
             require_tool(
@@ -274,7 +282,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "clippy",
         name: "3. Strict Clippy (workspace, all targets)",
         tier: VerificationTier::Tier2Compilation,
-        order: 11,
+        order: 12,
         cost_level: "high",
         runner: |root| {
             run_cmd_in(
@@ -295,7 +303,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "check-workspace",
         name: "4. Full Workspace Compilation",
         tier: VerificationTier::Tier2Compilation,
-        order: 12,
+        order: 13,
         cost_level: "high",
         runner: |root| run_cmd_in(root, "cargo", &["check", "--workspace", "--all-targets"]),
     },
@@ -303,7 +311,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "check-portable-core",
         name: "4a. Portable Core Profile",
         tier: VerificationTier::Tier2Compilation,
-        order: 13,
+        order: 14,
         cost_level: "medium",
         runner: |root| {
             run_cmd_in(
@@ -317,7 +325,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "check-arm-core",
         name: "4b. ARM Bare-Metal Core Profile",
         tier: VerificationTier::Tier2Compilation,
-        order: 14,
+        order: 15,
         cost_level: "medium",
         runner: |root| {
             run_cmd_in(
@@ -338,7 +346,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "check-wasm-core",
         name: "4c. WebAssembly Core Profile",
         tier: VerificationTier::Tier2Compilation,
-        order: 15,
+        order: 16,
         cost_level: "medium",
         runner: |root| {
             run_cmd_in(
@@ -359,7 +367,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "check-portable-contracts",
         name: "4d. Portable Shared Contracts",
         tier: VerificationTier::Tier2Compilation,
-        order: 16,
+        order: 17,
         cost_level: "medium",
         runner: |root| {
             run_cmd_in(
@@ -373,7 +381,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "check-arm-contracts",
         name: "4e. ARM Bare-Metal Shared Contracts",
         tier: VerificationTier::Tier2Compilation,
-        order: 17,
+        order: 18,
         cost_level: "medium",
         runner: |root| {
             run_cmd_in(
@@ -394,7 +402,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "check-wasm-contracts",
         name: "4f. WebAssembly Shared Contracts",
         tier: VerificationTier::Tier2Compilation,
-        order: 18,
+        order: 19,
         cost_level: "medium",
         runner: |root| {
             run_cmd_in(
@@ -415,7 +423,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "check-release",
         name: "10. Release Binary Check",
         tier: VerificationTier::Tier2Compilation,
-        order: 19,
+        order: 20,
         cost_level: "high",
         runner: |root| {
             run_cmd_in(
@@ -436,7 +444,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "check-features",
         name: "11. Optional Runtime Features (compile only)",
         tier: VerificationTier::Tier2Compilation,
-        order: 20,
+        order: 21,
         cost_level: "high",
         runner: |root| {
             run_cmd_in(
@@ -457,7 +465,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "check-iroh",
         name: "12. Iroh Compatibility Feature (compile only)",
         tier: VerificationTier::Tier2Compilation,
-        order: 21,
+        order: 22,
         cost_level: "medium",
         runner: |root| {
             run_cmd_in(
@@ -479,7 +487,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "test-workspace",
         name: "5. Workspace Test Suite",
         tier: VerificationTier::Tier3Execution,
-        order: 22,
+        order: 23,
         cost_level: "high",
         runner: |root| run_cmd_in(root, "cargo", &["test", "--workspace"]),
     },
@@ -487,7 +495,7 @@ pub const ALL_GATE_CHECKS: &[GateCheckDefinition] = &[
         id: "test-emulator",
         name: "8. Golden Dogfooding Harness Verification",
         tier: VerificationTier::Tier3Execution,
-        order: 23,
+        order: 24,
         cost_level: "medium",
         runner: |root| run_cmd_in(root, "cargo", &["test", "-p", "emulator_harness"]),
     },
@@ -1058,6 +1066,9 @@ pub fn run() -> Result<()> {
     println!("=== 9.5. Profile Dependency Direction Check ===");
     crate::check_deps::run().context("Gate 9.5 failed: Profile Dependency Direction Check")?;
 
+    println!("=== 9.6. Chrono Ratchet Check ===");
+    crate::check_chrono::run(&[]).context("Gate 9.6 failed: Chrono Ratchet Check")?;
+
     println!("=== 10. Release Binary Check ===");
     run_cmd(
         "cargo",
@@ -1311,14 +1322,15 @@ mod tests {
             .iter()
             .filter(|c| c.tier == VerificationTier::Tier0Preflight)
             .collect();
-        assert_eq!(tier0_checks.len(), 7);
+        assert_eq!(tier0_checks.len(), 8);
         assert_eq!(tier0_checks[0].id, "check-encoding");
         assert_eq!(tier0_checks[1].id, "fmt");
         assert_eq!(tier0_checks[2].id, "zero-stubs");
         assert_eq!(tier0_checks[3].id, "ast-audit");
         assert_eq!(tier0_checks[4].id, "check-unwraps");
         assert_eq!(tier0_checks[5].id, "check-deps");
-        assert_eq!(tier0_checks[6].id, "check-native");
+        assert_eq!(tier0_checks[6].id, "check-chrono");
+        assert_eq!(tier0_checks[7].id, "check-native");
     }
 
     #[test]

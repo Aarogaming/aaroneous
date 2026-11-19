@@ -178,6 +178,11 @@ pub const ALLOWED_GATES: &[StaticGate] = &[
         description: "Profile dependency direction check",
     },
     StaticGate {
+        name: "check-chrono",
+        stage: "9.6",
+        description: "Chrono ratchet check (direct dependency and Utc::now/Local::now call sites)",
+    },
+    StaticGate {
         name: "check-release",
         stage: "10",
         description: "Release binary compilation check (aaroneous, hypervisor)",
@@ -1250,6 +1255,7 @@ aaroneous-devtools = { path = "../../aaroneous-devtools" }
         assert!(names.contains(&"test-emulator"));
         assert!(names.contains(&"check-unwraps"));
         assert!(names.contains(&"check-deps"));
+        assert!(names.contains(&"check-chrono"));
         assert!(names.contains(&"check-release"));
         assert!(names.contains(&"check-optional-features"));
         assert!(names.contains(&"check-iroh-feature"));

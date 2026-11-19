@@ -22,6 +22,7 @@ use std::process::ExitCode;
 use syn::visit::Visit;
 use walkdir::WalkDir;
 
+pub use self::rules::ambient_clock::{AmbientClockHit, AmbientClockVisitor};
 pub use self::rules::memory_geometry::{MemoryGeometryViolation, MemoryGeometryVisitor};
 pub use self::rules::no_ambient_authority::{AmbientAuthorityVisitor, AmbientViolation};
 pub use self::rules::no_workspace_prefix_stutter::{
@@ -173,6 +174,20 @@ pub fn scan_unwrap_panic_hits(
     let content = fs::read_to_string(path)?;
     let syntax_tree = syn::parse_file(&content)?;
     let mut visitor = UnwrapPanicVisitor::new(path, &content);
+    visitor.visit_file(&syntax_tree);
+    Ok(visitor.hits)
+}
+
+/// Parse a single Rust source file and return every `Utc::now` / `Local::now`
+/// path found outside test code (see `AmbientClockVisitor` for the exact
+/// matching rules and its macro-body limit). Used by `cargo xtask check-chrono`
+/// to build its ratchet baseline.
+pub fn scan_ambient_clock_hits(
+    path: &Path,
+) -> Result<Vec<AmbientClockHit>, Box<dyn std::error::Error>> {
+    let content = fs::read_to_string(path)?;
+    let syntax_tree = syn::parse_file(&content)?;
+    let mut visitor = AmbientClockVisitor::new(path);
     visitor.visit_file(&syntax_tree);
     Ok(visitor.hits)
 }
