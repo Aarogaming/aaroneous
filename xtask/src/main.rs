@@ -9,6 +9,7 @@ mod gate;
 mod install;
 mod native_audit;
 mod package;
+mod status;
 mod uninstall;
 pub mod vbranch;
 mod workspace_metadata;
@@ -22,6 +23,7 @@ fn main() -> Result<()> {
     match subcommand {
         "gate" => gate::run(),
         "preflight" => gate::preflight_cli(&args[2..]),
+        "status" => status::run(&args[2..]),
         "check-encoding" => encoding::run(),
         "check-native" => native_audit::run(),
         "check-unwraps" => check_unwraps::run(&args[2..]),
@@ -65,6 +67,7 @@ Usage: cargo xtask <subcommand>
 Subcommands:
   gate                Run every CI verification gate locally (replaces scripts/agent_check.sh)
   preflight           Run deterministic cost-layered verification preflight (Tier 0 static checks by default)
+  status              Print facts derived from the workspace (version, packages, profiles, gate checks); read-only
   check-encoding      Validate UTF-8/LF compliance across all tracked files
   check-native        Enforce the pure-Rust core boundary and native package allowlist
   check-unwraps       Check unwrap/expect/panic!/assert! counts against the ratchet baseline
