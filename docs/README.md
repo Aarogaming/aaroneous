@@ -4,6 +4,8 @@
 **Standard:** Sterile Execution Plane (SEP) / Zero-Allocation Substrate  
 **Status:** Active Canonical Specification Manual  
 
+> **Version note:** this label does not match the workspace version, which is set in `Cargo.toml` (`0.4.0` at `cc794cb3`). `Cargo.toml` is the source of truth (owner decision, 2026-11-19). The label is kept as history and is not maintained.
+
 ---
 
 ## 1. The Evolutionary Lineage of Aaroneous

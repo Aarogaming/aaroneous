@@ -1,5 +1,7 @@
 # Aaroneous OS v1.2.0 - The Sovereign Core Update
 
+> **Historical release notes.** The v1.2.0 label does not match the workspace version, which is set in `Cargo.toml` (`0.4.0` at `cc794cb3`); `Cargo.toml` is the source of truth (owner decision, 2026-11-19). This file is not maintained.
+
 This is the largest architectural update in the history of the Aaroneous Desktop Hypervisor. The engine has been completely decoupled from the cloud, hardware-accelerated, and transformed into a true local-first AI Operating System.
 
 ## 🔴 Priority 1: The Core Intercom & Modularity
