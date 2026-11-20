@@ -421,6 +421,26 @@ pub fn scan_workspace(
     git_revision: &str,
     output_path: Option<&Path>,
 ) -> Result<CapabilityManifest> {
+    let manifest = build_manifest(workspace_root, git_revision)?;
+
+    // Write output
+    let json = serde_json::to_string_pretty(&manifest)?;
+    if let Some(path) = output_path {
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(path, &json)?;
+    } else {
+        println!("{}", json);
+    }
+
+    Ok(manifest)
+}
+
+/// Build the capability manifest for a workspace at a revision without
+/// writing or printing anything. `scan_workspace` adds the output step;
+/// read-only callers such as `cargo xtask status` use this directly.
+pub fn build_manifest(workspace_root: &Path, git_revision: &str) -> Result<CapabilityManifest> {
     if !workspace_root.exists() {
         bail!("Workspace root does not exist: {:?}", workspace_root);
     }
@@ -756,17 +776,6 @@ pub fn scan_workspace(
         artifact_contract,
         fingerprint,
     };
-
-    // Write output
-    let json = serde_json::to_string_pretty(&manifest)?;
-    if let Some(path) = output_path {
-        if let Some(parent) = path.parent() {
-            fs::create_dir_all(parent)?;
-        }
-        fs::write(path, &json)?;
-    } else {
-        println!("{}", json);
-    }
 
     Ok(manifest)
 }

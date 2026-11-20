@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use crate::gate::{ALL_GATE_CHECKS, validate_target_rev, validate_workspace_root};
-use crate::workspace_metadata::{CrateInfo, scan_workspace};
+use crate::workspace_metadata::{CrateInfo, build_manifest};
 
 /// Label used for packages that declare no `[package.metadata.cratify] profile`.
 const NO_PROFILE: &str = "(none declared)";
@@ -168,7 +168,7 @@ pub fn run(args: &[String]) -> Result<()> {
     let root = validate_workspace_root(&root)?;
     let revision = validate_target_rev(&root, &revision)?;
     let version = read_workspace_version(&root)?;
-    let manifest = scan_workspace(&root, &revision, None)?;
+    let manifest = build_manifest(&root, &revision)?;
     let facts = facts_from(&revision, &version, &manifest.crates, &manifest.fingerprint);
 
     if json {
