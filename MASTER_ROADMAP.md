@@ -2,6 +2,8 @@
 
 > **CANONICAL ROADMAP LOCATION**: See [docs/roadmap.md](docs/roadmap.md) for the authoritative, evidence-labeled product roadmap, pillar status, and release schedule.
 
+> **Version labels:** the version numbers in the tables below (`1.2.0`, `1.6.0`, `1.7.0`) are historical labels and do not match the workspace version in `Cargo.toml` (`0.4.0` at `cc794cb3`), which is the source of truth (owner decision, 2026-11-19).
+
 ## Table of Contents
 1. [Executive Summary](#executive-summary)  
 2. [Current State & Decoupling Progress](#current-state--decoupling-progress)  

@@ -2,6 +2,8 @@
 
 All notable changes to Aaroneous.
 
+> **Version labels:** section numbers below (down to `[1.6.0]`) do not match the workspace version, which is set in `Cargo.toml` (`0.4.0` at `cc794cb3`); `Cargo.toml` is the source of truth (owner decision, 2026-11-19). There are no entries after 2026-09-23 yet; that gap is separate from this note.
+
 > **Architectural Note:** References in historical changelog sections (< v0.1.0) to `components/*` describe the legacy monolithic prototype layout. In v0.1.0+, all components were refactored into `core/hypervisor` and the 12 sovereign `crates/*` workspace crates.
 
 ## [Unreleased]
