@@ -33,12 +33,12 @@ use walkdir::WalkDir;
 /// `dev/`).
 const SCAN_ROOTS: &[&str] = &["core", "crates", "dev"];
 
-struct WorkspacePackage {
-    name: String,
-    root_dir: PathBuf,
+pub(crate) struct WorkspacePackage {
+    pub(crate) name: String,
+    pub(crate) root_dir: PathBuf,
 }
 
-fn find_workspace_root(start: &Path) -> Result<PathBuf> {
+pub(crate) fn find_workspace_root(start: &Path) -> Result<PathBuf> {
     let mut current = start.to_path_buf();
     loop {
         let toml_path = current.join("Cargo.toml");
@@ -57,7 +57,7 @@ fn find_workspace_root(start: &Path) -> Result<PathBuf> {
 /// Load every workspace member package whose manifest lives under one of
 /// `SCAN_ROOTS`, via `cargo metadata --no-deps` (authoritative package
 /// names and manifest paths, robust to renames).
-fn load_scanned_packages(workspace_root: &Path) -> Result<Vec<WorkspacePackage>> {
+pub(crate) fn load_scanned_packages(workspace_root: &Path) -> Result<Vec<WorkspacePackage>> {
     let output = Command::new("cargo")
         .args(["metadata", "--no-deps", "--format-version=1"])
         .current_dir(workspace_root)
@@ -160,7 +160,7 @@ fn is_excluded(path: &Path, pkg_root: &Path) -> bool {
 /// `crates/runtime_monitor/runtime_monitor_bench` nested under
 /// `crates/runtime_monitor`), so a file is never attributed to two
 /// packages at once.
-fn collect_source_files(pkg_root: &Path, other_roots: &[PathBuf]) -> Vec<PathBuf> {
+pub(crate) fn collect_source_files(pkg_root: &Path, other_roots: &[PathBuf]) -> Vec<PathBuf> {
     let mut files = Vec::new();
     for entry in WalkDir::new(pkg_root).into_iter().filter_entry(|entry| {
         if entry.depth() == 0 {

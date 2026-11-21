@@ -1,0 +1,48 @@
+# Ratchet baseline for `cargo xtask check-vocabulary` (CRATIFY_SPEC.md Ratchet
+# pattern; owner rule 2026-11-19). Each line is `package_name count`: the number
+# of identifier occurrences in that package's production code whose words match a
+# `flag` entry in `xtask/vocabulary_terms.txt`. Excluded: tests/, examples/,
+# benches/, build.rs, bootstrap entrypoints, *_test.rs, *_tests.rs, and
+# #[cfg(test)]/#[test] items. Comments, strings and macro bodies are not scanned.
+#
+# This list may only shrink or stay flat. When you rename an identifier to its
+# standard term, lower the number - do not leave it stale. Regenerate with
+# `cargo xtask check-vocabulary --dump-baseline`.
+adaptation_engine 18
+adaptation_plane 86
+api 0
+ast_auditor 0
+capabilities 26
+chaos_injector 0
+compliance_auditor 0
+compute 62
+coordinator 673
+core-contracts 0
+cratify 0
+cratify_core 0
+emulator_harness 0
+governance 0
+host 0
+hypervisor 126
+ipc_bus 88
+llm_gateway 0
+llm_gateway_types 0
+local_inference 0
+mcp_server 0
+omni 13
+orchestration_plane 0
+orchestrator 36
+paths 5
+paths_core 0
+platform_bridge 3
+rfc0006_abi 0
+rfc0006_host 0
+runtime_monitor 0
+runtime_monitor_bench 0
+scan_core 0
+scratchpad 0
+si_format 6
+si_ir 0
+studio_hud 16
+transpiler 0
+wire 0

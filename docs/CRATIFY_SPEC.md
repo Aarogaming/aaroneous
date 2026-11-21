@@ -282,6 +282,15 @@ Rules this specification declares but `ast_auditor` does not yet enforce, in ado
     - Big-endian digit weighting matching numeric magnitude ordering.
     - Zero sentinel (`"000000000000000000000000"`), tombstone max sentinel (`"zzzzzzzzzzzzzzzzzzzzzzzz"`).
     - Validated by `cargo xtask base36 validate <string>`.
+14. Vocabulary rule (owner rule 2026-11-19; term list approved 2026-11-21). Use the standardized scientific or
+    engineering term where one exists; keep an analogical (biology-derived) name only where none does.
+    **Enforced in baseline mode, outside the gate** by `cargo xtask check-vocabulary`: it counts identifier
+    occurrences whose words match a `flag` entry in `xtask/vocabulary_terms.txt` (every entry, allowed terms
+    included, carries a recorded reason) and fails when a package's count rises above
+    `xtask/vocabulary_baseline.txt`; the count may only shrink. Scope matches `check-unwraps` (`core/`,
+    `crates/`, `dev/`; production code only); comments, strings and macro bodies are not scanned. The command
+    renames nothing and is not yet a numbered gate in `cargo xtask gate`; wiring it into the gate changes the
+    mandatory verification protocol and needs owner approval. Renames are separate, staged changes.
 
 ---
 

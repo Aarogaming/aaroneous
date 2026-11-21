@@ -92,7 +92,7 @@ impl<'a> UnwrapPanicVisitor<'a> {
 }
 
 /// True if `attrs` contains `#[cfg(test)]` or a bare `#[test]`.
-fn is_test_item(attrs: &[Attribute]) -> bool {
+pub(crate) fn is_test_item(attrs: &[Attribute]) -> bool {
     attrs.iter().any(|attr| {
         if attr.path().is_ident("test") {
             return true;
