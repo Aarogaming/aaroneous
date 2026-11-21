@@ -1,0 +1,43 @@
+# Reviewed term list for `cargo xtask check-vocabulary`.
+#
+# Owner rule (2026-11-19): use a standardized scientific or engineering term
+# if one exists for the intent; the analogical name is allowed only when no such
+# term exists. Owner approved this list on 2026-11-21 (list A flag, list B allow,
+# `synapse` flagged), from docs/BIOLOGY_TERM_LIST_PROPOSAL_2026-11-20.md.
+#
+# Format, one entry per line, fields separated by `|`:
+#   flag|prefix|<stem>|<reason>       flag identifier words that start with <stem>
+#   flag|exact|<word>|<reason>        flag identifier words equal to <word>
+#   allow|prefix|<stem>|<reason>      never flag words that start with <stem>
+#   allow|exact|<word>|<reason>       never flag words equal to <word>
+#   allow-phrase|<w1 w2 ...>|<reason> do not flag a flagged word that begins this phrase
+# Matching is on identifier words (snake_case and camelCase split), not substrings.
+# The "candidate standard term" in each reason is a candidate to verify at the use
+# site, not a finding; no rename is made by this list.
+
+# --- List A (flag): analogy where a standard term is believed to exist ---
+flag|prefix|chromosome|registry, manifest or capability table (verify at use site)
+flag|prefix|genome|registry, manifest or schema (verify at use site)
+flag|prefix|genetic|configuration or parameter set (verify at use site); the phrase genetic algorithm is allowed below
+flag|prefix|epigenetic|configuration overlay or parameter set
+flag|exact|hox|registry or capability table
+flag|exact|dna|model manifest, metadata sidecar or fingerprint
+flag|prefix|enzyme|tool runner or executor
+flag|prefix|symbio|cooperative or co-scheduled, or the specific protocol name
+flag|prefix|metabol|resource budget, rate limiter or throttle
+flag|prefix|homeosta|regulation loop or setpoint controller (governor is already used in this repo)
+flag|prefix|cortex|tier or layer name (a serialized flag value may need a compatibility plan before renaming)
+flag|prefix|prefrontal|tier or layer name
+flag|prefix|biolog|none needed; remove (the v1.7.0 docs already say biological metaphors were removed)
+
+# --- Owner decision L3 = C1 (2026-11-21): flag synapse ---
+flag|prefix|synap|channel, bus or link are the standard terms for a shared-memory channel
+
+# --- List B (allow): standard engineering terms, recorded as allowed ---
+allow|prefix|mutat|code mutation, AST mutation and mutation testing are established software terms
+allow|prefix|lineage|data and build lineage is an established term
+allow|prefix|evolution|software evolution is an established term
+allow|prefix|neural|neural network is a standard machine-learning term
+allow|prefix|neuron|neuron is a standard machine-learning term
+allow|prefix|attention|attention is a standard machine-learning term
+allow-phrase|genetic algorithm|a standard optimization term, allowed only as this exact phrase

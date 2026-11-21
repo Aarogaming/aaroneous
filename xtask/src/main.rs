@@ -3,6 +3,7 @@
 pub mod base36;
 mod check_deps;
 mod check_unwraps;
+mod check_vocabulary;
 mod encoding;
 mod export_wit;
 mod gate;
@@ -26,6 +27,7 @@ fn main() -> Result<()> {
         "check-native" => native_audit::run(),
         "check-unwraps" => check_unwraps::run(&args[2..]),
         "check-deps" => check_deps::run(),
+        "check-vocabulary" => check_vocabulary::run(&args[2..]),
         "install" => install::run(&args[2..]),
         "uninstall" => uninstall::run(),
         "package" => package::run(&args[2..]),
@@ -70,6 +72,7 @@ Subcommands:
   check-unwraps       Check unwrap/expect/panic!/assert! counts against the ratchet baseline
                       (--dump-baseline prints current counts in baseline-file format)
   check-deps          Check profile dependency direction against the ratchet baseline
+  check-vocabulary    Check analogical-name counts against the reviewed term list and ratchet baseline
   export-wit          Export WebAssembly Interface Type (WIT) declarations from capabilities
   export-capability-manifest (alias: workspace-metadata)
                       Export strict workspace capability manifest (--workspace-root <PATH> --git-revision <HEX>)

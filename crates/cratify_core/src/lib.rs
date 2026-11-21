@@ -32,6 +32,9 @@ pub use self::rules::text_encoding::{
     EncodingViolation, audit_file_encoding, audit_tracked_encodings,
 };
 pub use self::rules::unwrap_panic::{UnwrapPanicHit, UnwrapPanicVisitor};
+pub use self::rules::vocabulary::{
+    AllowedPhrase, MatchKind, Term, TermList, VocabularyHit, VocabularyVisitor, split_words,
+};
 pub use self::rules::zero_alloc_hot_path::{HotPathAllocViolation, HotPathAllocVisitor};
 
 /// Unified audit report aggregating structural and semantic AST violations.
@@ -173,6 +176,20 @@ pub fn scan_unwrap_panic_hits(
     let content = fs::read_to_string(path)?;
     let syntax_tree = syn::parse_file(&content)?;
     let mut visitor = UnwrapPanicVisitor::new(path, &content);
+    visitor.visit_file(&syntax_tree);
+    Ok(visitor.hits)
+}
+
+/// Parse a single Rust source file and return every identifier occurrence that
+/// the reviewed `terms` list flags (see `rules::vocabulary`). Used by
+/// `cargo xtask check-vocabulary` to build its ratchet baseline.
+pub fn scan_vocabulary_hits(
+    path: &Path,
+    terms: &TermList,
+) -> Result<Vec<VocabularyHit>, Box<dyn std::error::Error>> {
+    let content = fs::read_to_string(path)?;
+    let syntax_tree = syn::parse_file(&content)?;
+    let mut visitor = VocabularyVisitor::new(path, terms);
     visitor.visit_file(&syntax_tree);
     Ok(visitor.hits)
 }
